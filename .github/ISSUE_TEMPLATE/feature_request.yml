@@ -1,0 +1,50 @@
+name: Feature request
+description: Propose a new capability or improvement
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What pain point are you trying to solve?
+      placeholder: Describe the current limitation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should be added or changed?
+      placeholder: Describe the desired behavior and scope.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you evaluated.
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who benefits and how?
+      placeholder: Operational impact, developer impact, or product value.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - ingestion
+        - normalization
+        - anomaly detection
+        - correlation
+        - rca
+        - llm
+        - api
+        - cli
+        - docs
+        - ci
+    validations:
+      required: true

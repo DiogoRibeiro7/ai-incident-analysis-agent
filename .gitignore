@@ -1,12 +1,52 @@
+# Python bytecode and caches
 __pycache__/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+*.py[cod]
+*$py.class
+
+# Virtual environments
 .venv/
-dist/
+venv/
+env/
+ENV/
+
+# Packaging and build artifacts
 build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
 coverage.xml
 htmlcov/
+
+# Type checker / linter caches
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# Notebook and interactive artifacts
+.ipynb_checkpoints/
+
+# Environment and local config
 .env
-DEVELOP.md
+.env.*
+*.local
+
+# Project runtime artifacts
 artifacts/
+*.log
+
+# IDE/editor settings
+.idea/
+.vscode/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+ROADMAP_FUTURE.md

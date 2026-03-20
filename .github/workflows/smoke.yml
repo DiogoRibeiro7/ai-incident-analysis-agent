@@ -1,0 +1,26 @@
+name: smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * 1-5"
+
+jobs:
+  sample-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Install dependencies
+        run: poetry install
+      - name: Run sample end-to-end pipeline
+        run: |
+          poetry run incident-agent run-pipeline \
+            --logs data/sample/incident/anomaly_logs.csv \
+            --metrics data/sample/incident/anomaly_metrics.csv \
+            --artifact-root artifacts/pipeline \
+            --bucket-size-minutes 5
