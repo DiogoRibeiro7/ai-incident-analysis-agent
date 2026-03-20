@@ -1,6 +1,13 @@
 app_name: ai-incident-analysis-agent
 environment: local
 llm_provider: mock
+llm:
+  provider: mock
+  report_model: gpt-4.1-mini
+  completion_model: gpt-4.1-mini
+  timeout_seconds: 20.0
+  max_retries: 3
+  retry_backoff_seconds: 1.0
 incident:
   error_level_threshold: ERROR
   metric_zscore_threshold: 2.5

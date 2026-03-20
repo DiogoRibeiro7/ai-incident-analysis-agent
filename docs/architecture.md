@@ -8,7 +8,7 @@
 4. Correlation layer groups nearby anomalies into incident candidates and ranks likely root service with dependency hints.
 5. RCA layer ranks evidence, summarizes incident features, and produces root-cause hypotheses.
 6. Prompt layer prepares grounded context.
-7. LLM layer produces a structured report.
+7. LLM provider abstraction selects mock or OpenAI backends for structured report generation.
 8. Validation layer ensures a predictable response schema.
 9. Delivery layer exposes results through CLI and API.
 

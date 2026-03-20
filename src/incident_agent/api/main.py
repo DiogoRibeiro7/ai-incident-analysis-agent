@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from incident_agent.agents.incident_agent import IncidentAnalysisAgent
-from incident_agent.llm.mock import MockLLMClient
+from incident_agent.llm.factory import create_provider, load_llm_config
 from incident_agent.schemas.events import LogEvent, MetricPoint
 from incident_agent.schemas.report import IncidentReport
 
@@ -37,6 +37,8 @@ def health() -> dict[str, str]:
 def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
     """Analyze a batch of logs and metrics."""
 
-    agent = IncidentAnalysisAgent(llm_client=MockLLMClient())
+    config = load_llm_config()
+    provider = create_provider(config)
+    agent = IncidentAnalysisAgent(provider=provider, report_model=config.report_model)
     reports = agent.analyze(logs=request.logs, metrics=request.metrics)
     return AnalyzeResponse(reports=reports)
