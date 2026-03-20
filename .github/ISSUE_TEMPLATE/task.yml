@@ -1,0 +1,52 @@
+name: Engineering task
+description: Track a focused implementation task
+title: "[Task]: "
+labels:
+  - task
+body:
+  - type: input
+    id: objective
+    attributes:
+      label: Objective
+      placeholder: What should be delivered?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Define what is in and out of scope.
+      placeholder: Include clear boundaries.
+    validations:
+      required: true
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation notes
+      description: Technical details, constraints, and dependencies.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - ingestion
+        - normalization
+        - anomaly detection
+        - correlation
+        - rca
+        - llm
+        - api
+        - cli
+        - docs
+        - ci
+    validations:
+      required: true

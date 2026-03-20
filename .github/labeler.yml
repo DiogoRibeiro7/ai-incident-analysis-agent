@@ -1,0 +1,53 @@
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/dependabot.yml"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "README.md"
+          - "ROADMAP.md"
+          - "DEVELOP.md"
+
+api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/incident_agent/api/**"
+
+cli:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/incident_agent/cli.py"
+
+ingestion:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/incident_agent/ingest/**"
+          - "src/incident_agent/ingestion/**"
+          - "data/sample/**"
+
+analysis:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/incident_agent/analysis/**"
+          - "src/incident_agent/normalization/**"
+          - "src/incident_agent/anomaly_detection/**"
+          - "src/incident_agent/correlation/**"
+          - "src/incident_agent/rca/**"
+          - "src/incident_agent/services/**"
+
+llm:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/incident_agent/llm/**"
+          - "src/incident_agent/prompts/**"
+          - "src/incident_agent/schemas/llm.py"
+          - "src/incident_agent/schemas/final_report.py"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tests/**"
