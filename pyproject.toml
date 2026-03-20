@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "ai-incident-analysis-agent"
+version = "0.1.0"
+description = "AI agent scaffold for incident analysis over logs and metrics."
+authors = ["Diogo Ribeiro"]
+readme = "README.md"
+packages = [{ include = "incident_agent", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.116.1"
+uvicorn = { extras = ["standard"], version = "^0.35.0" }
+pydantic = "^2.11.7"
+pydantic-settings = "^2.11.0"
+typer = "^0.17.4"
+rich = "^14.1.0"
+pyyaml = "^6.0.2"
+httpx = "^0.28.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-cov = "^6.2.1"
+ruff = "^0.12.7"
+mypy = "^1.17.1"
+pre-commit = "^4.2.0"
+
+[tool.poetry.scripts]
+incident-agent = "incident_agent.cli:app"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "ANN", "RUF"]
+ignore = ["ANN101", "ANN102"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "-q"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"

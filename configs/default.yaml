@@ -1,0 +1,6 @@
+app_name: ai-incident-analysis-agent
+environment: local
+llm_provider: mock
+incident:
+  error_level_threshold: ERROR
+  metric_zscore_threshold: 2.5

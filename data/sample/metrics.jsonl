@@ -1,0 +1,3 @@
+{"timestamp":"2026-03-20T09:59:30","service":"api-service","metric_name":"cpu_usage","value":91.4,"unit":"percent","tags":{"host":"api-1"}}
+{"timestamp":"2026-03-20T10:00:30","service":"api-service","metric_name":"request_latency_ms","value":1860.0,"unit":"ms","tags":{"route":"/v1/orders"}}
+{"timestamp":"2026-03-20T10:01:30","service":"api-service","metric_name":"error_rate","value":0.31,"unit":"ratio","tags":{"route":"/v1/orders"}}
