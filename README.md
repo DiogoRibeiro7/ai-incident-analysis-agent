@@ -8,6 +8,7 @@ An AI engineering portfolio project that ingests logs and metrics, detects suspi
 - Timeline normalization and configurable time-bucket alignment
 - Deterministic anomaly detection (service-level and global)
 - Dependency-aware anomaly correlation into incident candidates
+- Root-cause analysis artifacts and heuristic hypothesis scoring
 - Incident enrichment and retrieval over operational context
 - LLM-based triage and summarisation with structured outputs
 - Guardrails and validation for agent responses
@@ -41,6 +42,7 @@ src/incident_agent/
   normalization/  # Timeline alignment and bucket feature extraction
   anomaly_detection/ # Rule-based anomaly detectors
   correlation/    # Incident grouping and root-cause ranking heuristics
+  rca/            # Evidence ranking and root-cause hypothesis scoring
   prompts/        # Prompt builders and templates
   schemas/        # Pydantic models
   services/       # End-to-end use cases
@@ -118,6 +120,15 @@ poetry run incident-agent detect-anomalies \
 
 ```bash
 poetry run incident-agent correlate-incidents \
+  --logs data/sample/incident/anomaly_logs.csv \
+  --metrics data/sample/incident/anomaly_metrics.csv \
+  --bucket-size-minutes 5
+```
+
+### 9. Run RCA heuristics
+
+```bash
+poetry run incident-agent run-rca \
   --logs data/sample/incident/anomaly_logs.csv \
   --metrics data/sample/incident/anomaly_metrics.csv \
   --bucket-size-minutes 5

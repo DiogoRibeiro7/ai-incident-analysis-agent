@@ -75,3 +75,8 @@ correlation:
   cross_signal_bonus: 0.3
   same_service_bonus: 0.4
   dependency_graph_path: configs/service_dependencies.yaml
+rca:
+  service_failure_bonus: 1.0
+  downstream_bonus: 0.8
+  ambiguity_delta: 0.75
+  dependency_graph_path: configs/service_dependencies.yaml
