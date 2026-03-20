@@ -8,7 +8,9 @@ from datetime import timedelta
 from incident_agent.schemas.events import IncidentCandidate, LogEvent, MetricPoint
 
 
-def correlate_incidents(logs: list[LogEvent], metrics: list[MetricPoint]) -> list[IncidentCandidate]:
+def correlate_incidents(
+    logs: list[LogEvent], metrics: list[MetricPoint]
+) -> list[IncidentCandidate]:
     """Correlate suspicious events into simple service-level incident candidates.
 
     Current heuristic:
