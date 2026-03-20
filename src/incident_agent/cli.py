@@ -16,6 +16,7 @@ from incident_agent.services.analyze import analyze_from_files
 from incident_agent.services.correlate import correlate_incidents_from_files
 from incident_agent.services.detect import detect_anomalies_from_files
 from incident_agent.services.normalize import normalize_from_files
+from incident_agent.services.pipeline import run_pipeline_from_files
 from incident_agent.services.rca import run_rca_from_files
 
 app = typer.Typer(help="CLI for the AI incident analysis agent.")
@@ -229,6 +230,36 @@ def run_rca_command(
         "hypotheses": [hypothesis.model_dump(mode="json") for hypothesis in result.hypotheses],
     }
     console.print_json(json.dumps(payload))
+
+
+@app.command("run-pipeline")
+def run_pipeline_command(
+    logs: Annotated[
+        str, typer.Option(help="Path to logs file (.jsonl or .csv).")
+    ],
+    metrics: Annotated[
+        str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
+    ],
+    config: Annotated[
+        str, typer.Option(help="Path to YAML config file.")
+    ] = "configs/default.yaml",
+    artifact_root: Annotated[
+        str, typer.Option(help="Root directory for pipeline artifacts.")
+    ] = "artifacts/pipeline",
+    bucket_size_minutes: Annotated[
+        int | None, typer.Option(help="Override bucket size (1, 5, 15).")
+    ] = None,
+) -> None:
+    """Run the full pipeline and persist artifacts."""
+
+    result = run_pipeline_from_files(
+        log_path=logs,
+        metric_path=metrics,
+        config_path=config,
+        artifact_root=artifact_root,
+        bucket_size_minutes=bucket_size_minutes,
+    )
+    console.print_json(json.dumps(result.model_dump(mode="json")))
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:

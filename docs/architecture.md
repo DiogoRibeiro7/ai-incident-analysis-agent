@@ -11,7 +11,8 @@
 7. Prompt template renderer builds modular report prompts from RCA artifacts.
 8. LLM provider abstraction selects mock or OpenAI backends for structured report generation.
 9. Validation layer ensures a predictable response schema.
-10. Delivery layer exposes results through CLI and API.
+10. Pipeline orchestrator persists normalized data, anomalies, incidents, RCA artifacts, and final reports.
+11. Delivery layer exposes results through CLI and API.
 
 ## Extension points
 
