@@ -6,6 +6,7 @@ An AI engineering portfolio project that ingests logs and metrics, detects suspi
 
 - Log and metric ingestion pipelines
 - Timeline normalization and configurable time-bucket alignment
+- Deterministic anomaly detection (service-level and global)
 - Incident enrichment and retrieval over operational context
 - LLM-based triage and summarisation with structured outputs
 - Guardrails and validation for agent responses
@@ -37,6 +38,7 @@ src/incident_agent/
   ingestion/      # Typed local ingestion (files + quality report)
   llm/            # LLM interfaces and adapters
   normalization/  # Timeline alignment and bucket feature extraction
+  anomaly_detection/ # Rule-based anomaly detectors
   prompts/        # Prompt builders and templates
   schemas/        # Pydantic models
   services/       # End-to-end use cases
@@ -98,6 +100,15 @@ poetry run pytest
 poetry run incident-agent normalize-timeline \
   --logs data/sample/incident/logs.csv \
   --metrics data/sample/incident/metrics.json \
+  --bucket-size-minutes 5
+```
+
+### 7. Detect anomaly candidates
+
+```bash
+poetry run incident-agent detect-anomalies \
+  --logs data/sample/incident/anomaly_logs.csv \
+  --metrics data/sample/incident/anomaly_metrics.csv \
   --bucket-size-minutes 5
 ```
 

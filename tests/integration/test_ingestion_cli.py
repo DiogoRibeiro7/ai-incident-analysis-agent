@@ -126,3 +126,22 @@ def test_normalize_timeline_command_outputs_buckets(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert '"buckets"' in result.stdout
+
+
+def test_detect_anomalies_command_outputs_candidates() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "detect-anomalies",
+            "--logs",
+            "data/sample/incident/anomaly_logs.csv",
+            "--metrics",
+            "data/sample/incident/anomaly_metrics.csv",
+            "--bucket-size-minutes",
+            "5",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "latency_spike" in result.stdout
