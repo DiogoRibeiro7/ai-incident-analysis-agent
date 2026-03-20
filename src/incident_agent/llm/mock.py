@@ -1,17 +1,31 @@
-"""Mock LLM implementation for deterministic local development."""
+"""Mock provider for deterministic local development and tests."""
 
 from __future__ import annotations
 
+import json
+
+from incident_agent.llm.base import BaseLLMProvider
+from incident_agent.schemas.llm import (
+    LLMCompletionRequest,
+    LLMCompletionResponse,
+    LLMStructuredReportRequest,
+    LLMStructuredReportResponse,
+)
 from incident_agent.schemas.report import EvidenceItem, IncidentReport
 
 
-class MockLLMClient:
-    """Very small local stand-in for a real LLM backend."""
+class MockLLMProvider(BaseLLMProvider):
+    """Deterministic provider for local and test usage."""
 
-    def generate_incident_report(self, prompt: str) -> IncidentReport:
-        """Return a deterministic report without external dependencies."""
+    def complete(self, request: LLMCompletionRequest) -> LLMCompletionResponse:
+        content = f"Mock completion for model={request.model}. Prompt size={len(request.prompt)}."
+        return LLMCompletionResponse(model=request.model, content=content, raw_response={})
 
-        return IncidentReport(
+    def generate_structured_report(
+        self,
+        request: LLMStructuredReportRequest,
+    ) -> LLMStructuredReportResponse:
+        report = IncidentReport(
             title="Mock incident report",
             severity="high",
             impacted_service="api-service",
@@ -30,7 +44,16 @@ class MockLLMClient:
                 EvidenceItem(
                     kind="prompt_excerpt",
                     timestamp="n/a",
-                    content=prompt[:160],
+                    content=request.prompt[:160],
                 )
             ],
         )
+        return LLMStructuredReportResponse(
+            model=request.model,
+            content=json.dumps(report.model_dump(mode="json")),
+            raw_response={"provider": "mock"},
+        )
+
+
+# Backward compatibility alias.
+MockLLMClient = MockLLMProvider

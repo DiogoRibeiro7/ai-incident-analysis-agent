@@ -9,6 +9,7 @@ An AI engineering portfolio project that ingests logs and metrics, detects suspi
 - Deterministic anomaly detection (service-level and global)
 - Dependency-aware anomaly correlation into incident candidates
 - Root-cause analysis artifacts and heuristic hypothesis scoring
+- LLM provider abstraction (mock + OpenAI) with structured report generation
 - Incident enrichment and retrieval over operational context
 - LLM-based triage and summarisation with structured outputs
 - Guardrails and validation for agent responses
@@ -133,6 +134,18 @@ poetry run incident-agent run-rca \
   --metrics data/sample/incident/anomaly_metrics.csv \
   --bucket-size-minutes 5
 ```
+
+## LLM provider configuration
+
+Provider and model selection is centralized under `llm` in `configs/default.yaml`.
+
+Default local mode:
+- `llm.provider: mock`
+
+To use OpenAI provider:
+1. Set `llm.provider: openai` in config.
+2. Export credential:
+   - `INCIDENT_AGENT_OPENAI_API_KEY=<your_api_key>`
 
 ## Example use cases
 

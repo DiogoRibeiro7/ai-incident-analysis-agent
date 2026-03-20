@@ -30,10 +30,13 @@ def analyze(
     metrics: Annotated[
         str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
     ],
+    config: Annotated[
+        str, typer.Option(help="Path to YAML config file.")
+    ] = "configs/default.yaml",
 ) -> None:
     """Analyze logs and metrics and print structured reports."""
 
-    reports = analyze_from_files(log_path=logs, metric_path=metrics)
+    reports = analyze_from_files(log_path=logs, metric_path=metrics, config_path=config)
     serialised = [report.model_dump(mode="json") for report in reports]
     console.print_json(json.dumps(serialised))
 

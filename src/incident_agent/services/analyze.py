@@ -4,14 +4,21 @@ from __future__ import annotations
 
 from incident_agent.agents.incident_agent import IncidentAnalysisAgent
 from incident_agent.ingest.files import load_logs, load_metrics
-from incident_agent.llm.mock import MockLLMClient
+from incident_agent.llm.factory import create_provider, load_llm_config
 from incident_agent.schemas.report import IncidentReport
 
 
-def analyze_from_files(log_path: str, metric_path: str) -> list[IncidentReport]:
+def analyze_from_files(
+    log_path: str,
+    metric_path: str,
+    *,
+    config_path: str = "configs/default.yaml",
+) -> list[IncidentReport]:
     """Load logs and metrics from files and return incident reports."""
 
     logs = load_logs(log_path)
     metrics = load_metrics(metric_path)
-    agent = IncidentAnalysisAgent(llm_client=MockLLMClient())
+    llm_config = load_llm_config(config_path)
+    provider = create_provider(llm_config)
+    agent = IncidentAnalysisAgent(provider=provider, report_model=llm_config.report_model)
     return agent.analyze(logs=logs, metrics=metrics)
