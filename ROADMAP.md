@@ -7,6 +7,7 @@
 - [x] FastAPI entrypoint
 - [x] Mock LLM adapter
 - [x] File ingestion parity for local formats (JSONL/CSV logs, CSV/JSON metrics)
+- [x] Timeline normalization with configurable 1/5/15-minute buckets
 - [ ] Stronger incident grouping heuristics
 - [ ] Better evidence ranking
 

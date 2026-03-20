@@ -4,3 +4,22 @@ llm_provider: mock
 incident:
   error_level_threshold: ERROR
   metric_zscore_threshold: 2.5
+normalization:
+  bucket_size_minutes: 5
+  log_spike_threshold: 4
+  error_burst_threshold: 2
+  latency_metrics:
+    - request_latency_ms
+    - latency_ms
+    - p95_latency_ms
+  cpu_metrics:
+    - cpu_usage
+    - cpu_percent
+  memory_metrics:
+    - memory_usage
+    - memory_usage_mb
+    - memory_used_mb
+  service_failure_metrics:
+    - error_rate
+    - upstream_failure_rate
+    - service_unavailable

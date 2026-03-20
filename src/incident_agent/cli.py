@@ -13,6 +13,7 @@ from rich.table import Table
 from incident_agent.ingestion.logs import ingest_logs
 from incident_agent.ingestion.metrics import ingest_metrics
 from incident_agent.services.analyze import analyze_from_files
+from incident_agent.services.normalize import normalize_from_files
 
 app = typer.Typer(help="CLI for the AI incident analysis agent.")
 console = Console()
@@ -107,6 +108,36 @@ def ingest_data(
         encoding="utf-8",
     )
     console.print(f"Wrote normalized ingestion artifacts to {target}")
+
+
+@app.command("normalize-timeline")
+def normalize_timeline(
+    logs: Annotated[
+        str, typer.Option(help="Path to logs file (.jsonl or .csv).")
+    ],
+    metrics: Annotated[
+        str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
+    ],
+    config: Annotated[
+        str, typer.Option(help="Path to YAML config file.")
+    ] = "configs/default.yaml",
+    bucket_size_minutes: Annotated[
+        int | None, typer.Option(help="Override bucket size (1, 5, 15).")
+    ] = None,
+) -> None:
+    """Normalize and align events to timeline buckets."""
+
+    alignment = normalize_from_files(
+        log_path=logs,
+        metric_path=metrics,
+        config_path=config,
+        bucket_size_minutes=bucket_size_minutes,
+    )
+    payload = {
+        "events": [event.model_dump(mode="json") for event in alignment.events],
+        "buckets": [bucket.model_dump(mode="json") for bucket in alignment.buckets],
+    }
+    console.print_json(json.dumps(payload))
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
