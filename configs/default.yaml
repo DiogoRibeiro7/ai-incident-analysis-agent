@@ -23,3 +23,40 @@ normalization:
     - error_rate
     - upstream_failure_rate
     - service_unavailable
+anomaly_detection:
+  error_rate:
+    min_support: 3
+    lookback_windows: 20
+    z_threshold: 2.5
+    mad_multiplier: 2.5
+    min_relative_change: 0.15
+  latency:
+    min_support: 3
+    lookback_windows: 20
+    z_threshold: 2.5
+    mad_multiplier: 2.5
+    min_relative_change: 0.2
+  cpu:
+    min_support: 3
+    lookback_windows: 20
+    z_threshold: 2.5
+    mad_multiplier: 2.5
+    min_relative_change: 0.15
+  memory:
+    min_support: 3
+    lookback_windows: 20
+    z_threshold: 2.5
+    mad_multiplier: 2.5
+    min_relative_change: 0.15
+  traffic:
+    min_support: 3
+    lookback_windows: 20
+    z_threshold: 2.2
+    mad_multiplier: 2.2
+    min_relative_change: 0.1
+  availability:
+    min_support: 3
+    lookback_windows: 20
+    z_threshold: 2.0
+    mad_multiplier: 2.0
+    min_relative_change: 0.1

@@ -1,0 +1,5 @@
+timestamp,service,severity,message,trace_id
+2026-03-20T11:00:00Z,checkout-service,INFO,Healthy request flow,a-001
+2026-03-20T11:05:00Z,checkout-service,INFO,Healthy request flow,a-002
+2026-03-20T11:10:00Z,checkout-service,INFO,Healthy request flow,a-003
+2026-03-20T11:15:00Z,checkout-service,ERROR,Service unavailable for upstream calls,a-004
