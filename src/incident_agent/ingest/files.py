@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, TypeVar
 
 from pydantic import BaseModel
 
 from incident_agent.schemas.events import LogEvent, MetricPoint
 
-TModel = TypeVar("TModel", bound=BaseModel)
 
-
-def _load_jsonl(path: Path, model: type[TModel]) -> list[TModel]:
+def _load_jsonl[TModel: BaseModel](path: Path, model: type[TModel]) -> list[TModel]:
     """Load newline-delimited JSON records into typed Pydantic models."""
 
     records: list[TModel] = []

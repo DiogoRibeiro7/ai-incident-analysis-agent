@@ -54,7 +54,7 @@ poetry install
 ### 2. Run the CLI demo
 
 ```bash
-poetry run incident-agent analyze \
+poetry run incident-agent \
   --logs data/sample/logs.jsonl \
   --metrics data/sample/metrics.jsonl
 ```
