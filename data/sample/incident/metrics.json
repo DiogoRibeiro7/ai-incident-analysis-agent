@@ -1,0 +1,34 @@
+{
+  "metrics": [
+    {
+      "timestamp": "2026-03-20T11:00:00Z",
+      "service": "api-service",
+      "metric_name": "request_latency_ms",
+      "value": 1900.0,
+      "unit": "ms",
+      "tags": {
+        "route": "/v1/orders"
+      }
+    },
+    {
+      "timestamp": "2026-03-20T11:01:00Z",
+      "service": "api-service",
+      "metric_name": "error_rate",
+      "value": 0.37,
+      "unit": "ratio",
+      "tags": {
+        "route": "/v1/orders"
+      }
+    },
+    {
+      "timestamp": "2026-03-20T11:02:00",
+      "service": "gateway-service",
+      "metric_name": "upstream_failure_rate",
+      "value": 0.22,
+      "unit": "ratio",
+      "tags": {
+        "upstream": "api-service"
+      }
+    }
+  ]
+}

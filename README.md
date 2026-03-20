@@ -55,17 +55,35 @@ poetry install
 
 ```bash
 poetry run incident-agent \
+  analyze \
   --logs data/sample/logs.jsonl \
   --metrics data/sample/metrics.jsonl
 ```
 
-### 3. Run the API locally
+### 3. Validate and ingest datasets
+
+```bash
+poetry run incident-agent validate-data \
+  --logs data/sample/incident/logs.csv \
+  --metrics data/sample/incident/metrics.json
+
+poetry run incident-agent ingest-data \
+  --logs data/sample/degraded/logs.jsonl \
+  --metrics data/sample/degraded/metrics.csv \
+  --output-dir artifacts/ingestion/degraded
+```
+
+Supported file formats:
+- logs: `.jsonl`, `.csv`
+- metrics: `.csv`, `.json`, `.jsonl`
+
+### 4. Run the API locally
 
 ```bash
 poetry run uvicorn incident_agent.api.main:app --reload
 ```
 
-### 4. Run tests
+### 5. Run tests
 
 ```bash
 poetry run pytest

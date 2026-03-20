@@ -1,0 +1,5 @@
+timestamp,service,metric_name,value,unit,tags
+2026-03-20T10:00:00Z,api-service,request_latency_ms,650.0,ms,"{""route"":""/v1/payments""}"
+2026-03-20T10:01:00Z,api-service,error_rate,0.08,ratio,"{""route"":""/v1/payments""}"
+2026-03-20T10:02:00Z,api-service,cpu_usage,84.0,percent,"{""host"":""api-1""}"
+2026-03-20T10:03:00Z,worker-service,queue_lag_seconds,18.0,seconds,"{""queue"":""billing-retry""}"

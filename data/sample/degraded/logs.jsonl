@@ -1,0 +1,4 @@
+{"timestamp":"2026-03-20T10:00:00Z","service":"api-service","severity":"WARN","message":"Upstream payment gateway latency elevated","trace_id":"deg-001","metadata":{"env":"prod","dependency":"payments"}}
+{"timestamp":"2026-03-20T10:01:00Z","service":"api-service","severity":"ERROR","message":"Read timeout while charging card","trace_id":"deg-002","metadata":{"env":"prod","dependency":"payments"}}
+{"timestamp":"2026-03-20T10:02:00Z","service":"api-service","severity":"ERROR","message":"Read timeout while charging card","trace_id":"deg-002","metadata":{"env":"prod","dependency":"payments"}}
+{"timestamp":"2026-03-20T10:03:00Z","service":"worker-service","severity":"WARN","message":"Queue depth increasing for retries","trace_id":"deg-003","metadata":{"env":"prod","queue":"billing-retry"}}

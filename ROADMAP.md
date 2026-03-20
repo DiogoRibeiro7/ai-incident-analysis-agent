@@ -6,7 +6,7 @@
 - [x] CLI entrypoint
 - [x] FastAPI entrypoint
 - [x] Mock LLM adapter
-- [ ] File ingestion parity for more formats
+- [x] File ingestion parity for local formats (JSONL/CSV logs, CSV/JSON metrics)
 - [ ] Stronger incident grouping heuristics
 - [ ] Better evidence ranking
 

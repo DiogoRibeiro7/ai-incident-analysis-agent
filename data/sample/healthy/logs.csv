@@ -1,0 +1,4 @@
+timestamp,service,severity,message,trace_id,metadata
+2026-03-20T09:00:00Z,api-service,INFO,Request completed,hlth-001,"{""env"":""prod"",""region"":""eu-west""}"
+2026-03-20T09:01:00Z,worker-service,INFO,Batch job completed,hlth-002,"{""env"":""prod"",""queue"":""payments""}"
+2026-03-20T09:02:00Z,api-service,WARN,Retry due to transient downstream latency,hlth-003,"{""env"":""prod"",""dependency"":""catalog""}"
