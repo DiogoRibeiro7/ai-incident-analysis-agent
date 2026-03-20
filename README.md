@@ -10,6 +10,7 @@ An AI engineering portfolio project that ingests logs and metrics, detects suspi
 - Dependency-aware anomaly correlation into incident candidates
 - Root-cause analysis artifacts and heuristic hypothesis scoring
 - LLM provider abstraction (mock + OpenAI) with structured report generation
+- Structured prompt templates for incident reporting from RCA artifacts
 - Incident enrichment and retrieval over operational context
 - LLM-based triage and summarisation with structured outputs
 - Guardrails and validation for agent responses
@@ -134,6 +135,13 @@ poetry run incident-agent run-rca \
   --metrics data/sample/incident/anomaly_metrics.csv \
   --bucket-size-minutes 5
 ```
+
+### 10. Render grounded report prompts from RCA artifacts
+
+Prompt rendering is available in `incident_agent.prompts.renderer` and consumes structured RCA artifacts (`EvidenceBundle`, `IncidentSummaryFeatures`, `RootCauseHypothesis`) without API calls.
+
+Final report schema is defined in:
+- `src/incident_agent/schemas/final_report.py`
 
 ## LLM provider configuration
 
