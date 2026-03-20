@@ -13,6 +13,7 @@ from rich.table import Table
 from incident_agent.ingestion.logs import ingest_logs
 from incident_agent.ingestion.metrics import ingest_metrics
 from incident_agent.services.analyze import analyze_from_files
+from incident_agent.services.correlate import correlate_incidents_from_files
 from incident_agent.services.detect import detect_anomalies_from_files
 from incident_agent.services.normalize import normalize_from_files
 
@@ -165,6 +166,33 @@ def detect_anomalies_command(
         bucket_size_minutes=bucket_size_minutes,
     )
     payload = [anomaly.model_dump(mode="json") for anomaly in result.anomalies]
+    console.print_json(json.dumps(payload))
+
+
+@app.command("correlate-incidents")
+def correlate_incidents_command(
+    logs: Annotated[
+        str, typer.Option(help="Path to logs file (.jsonl or .csv).")
+    ],
+    metrics: Annotated[
+        str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
+    ],
+    config: Annotated[
+        str, typer.Option(help="Path to YAML config file.")
+    ] = "configs/default.yaml",
+    bucket_size_minutes: Annotated[
+        int | None, typer.Option(help="Override bucket size (1, 5, 15).")
+    ] = None,
+) -> None:
+    """Correlate anomaly candidates into incident candidates."""
+
+    result = correlate_incidents_from_files(
+        log_path=logs,
+        metric_path=metrics,
+        config_path=config,
+        bucket_size_minutes=bucket_size_minutes,
+    )
+    payload = [incident.model_dump(mode="json") for incident in result.incidents]
     console.print_json(json.dumps(payload))
 
 

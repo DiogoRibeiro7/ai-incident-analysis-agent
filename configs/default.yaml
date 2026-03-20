@@ -60,3 +60,18 @@ anomaly_detection:
     z_threshold: 2.0
     mad_multiplier: 2.0
     min_relative_change: 0.1
+correlation:
+  max_time_distance_minutes: 10
+  minimum_evidence_count: 2
+  severity_weighting:
+    error_rate_spike: 1.1
+    latency_spike: 1.0
+    cpu_anomaly: 0.9
+    memory_anomaly: 0.9
+    traffic_drop: 1.0
+    service_unavailability: 1.2
+  dependency_downstream_bonus: 1.0
+  dependency_upstream_penalty: 0.5
+  cross_signal_bonus: 0.3
+  same_service_bonus: 0.4
+  dependency_graph_path: configs/service_dependencies.yaml

@@ -1,0 +1,24 @@
+services:
+  api-service:
+    upstream:
+      - orders-db
+    downstream:
+      - gateway-service
+      - checkout-service
+  gateway-service:
+    upstream:
+      - api-service
+    downstream: []
+  checkout-service:
+    upstream:
+      - api-service
+      - payment-service
+    downstream: []
+  payment-service:
+    upstream: []
+    downstream:
+      - checkout-service
+  orders-db:
+    upstream: []
+    downstream:
+      - api-service

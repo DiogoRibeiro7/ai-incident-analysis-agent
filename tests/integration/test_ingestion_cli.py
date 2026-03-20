@@ -145,3 +145,22 @@ def test_detect_anomalies_command_outputs_candidates() -> None:
 
     assert result.exit_code == 0
     assert "latency_spike" in result.stdout
+
+
+def test_correlate_incidents_command_outputs_incidents() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "correlate-incidents",
+            "--logs",
+            "data/sample/incident/anomaly_logs.csv",
+            "--metrics",
+            "data/sample/incident/anomaly_metrics.csv",
+            "--bucket-size-minutes",
+            "5",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "incident_id" in result.stdout
