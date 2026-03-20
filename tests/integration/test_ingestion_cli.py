@@ -183,3 +183,24 @@ def test_run_rca_command_outputs_hypotheses() -> None:
 
     assert result.exit_code == 0
     assert "suspected_root_cause_service" in result.stdout
+
+
+def test_run_pipeline_command_outputs_summary(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "run-pipeline",
+            "--logs",
+            "data/sample/incident/anomaly_logs.csv",
+            "--metrics",
+            "data/sample/incident/anomaly_metrics.csv",
+            "--artifact-root",
+            str(tmp_path),
+            "--bucket-size-minutes",
+            "5",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "final_report_count" in result.stdout

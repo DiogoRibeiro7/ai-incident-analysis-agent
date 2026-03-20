@@ -11,6 +11,7 @@ An AI engineering portfolio project that ingests logs and metrics, detects suspi
 - Root-cause analysis artifacts and heuristic hypothesis scoring
 - LLM provider abstraction (mock + OpenAI) with structured report generation
 - Structured prompt templates for incident reporting from RCA artifacts
+- End-to-end pipeline orchestration with persisted artifacts
 - Incident enrichment and retrieval over operational context
 - LLM-based triage and summarisation with structured outputs
 - Guardrails and validation for agent responses
@@ -142,6 +143,26 @@ Prompt rendering is available in `incident_agent.prompts.renderer` and consumes 
 
 Final report schema is defined in:
 - `src/incident_agent/schemas/final_report.py`
+
+### 11. Run the full pipeline
+
+```bash
+poetry run incident-agent run-pipeline \
+  --logs data/sample/incident/anomaly_logs.csv \
+  --metrics data/sample/incident/anomaly_metrics.csv \
+  --artifact-root artifacts/pipeline \
+  --bucket-size-minutes 5
+```
+
+Generated artifacts are saved under a run directory:
+- `normalized/timeline.json`
+- `anomalies/anomalies.json`
+- `incidents/incidents.json`
+- `rca/rca_hypotheses.json`
+- `reports/final_reports.json`
+
+API path for the same workflow:
+- `POST /analyze-pipeline` with file paths and optional artifact root.
 
 ## LLM provider configuration
 

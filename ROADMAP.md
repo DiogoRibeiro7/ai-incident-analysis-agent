@@ -17,6 +17,7 @@
 - [ ] Retrieval over runbooks and historical incidents
 - [x] Prompt templates for triage and remediation
 - [x] Real LLM provider adapter with mock fallback
+- [x] End-to-end pipeline orchestration with persisted artifacts
 - [ ] Output validation and retry policy
 - [ ] Trace and cost observability
 - [ ] Evaluation dataset and scorer
