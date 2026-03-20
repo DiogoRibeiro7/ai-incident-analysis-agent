@@ -1,40 +1,25 @@
-"""File-based ingestion utilities."""
+"""Legacy file-based ingestion wrappers."""
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterable
 from pathlib import Path
 
-from pydantic import BaseModel
-
+from incident_agent.ingestion.logs import ingest_logs
+from incident_agent.ingestion.metrics import ingest_metrics
 from incident_agent.schemas.events import LogEvent, MetricPoint
 
 
-def _load_jsonl[TModel: BaseModel](path: Path, model: type[TModel]) -> list[TModel]:
-    """Load newline-delimited JSON records into typed Pydantic models."""
-
-    records: list[TModel] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for raw_line in handle:
-            line: str = raw_line.strip()
-            if not line:
-                continue
-            payload = json.loads(line)
-            records.append(model.model_validate(payload))
-    return records
-
-
 def load_logs(path: str | Path) -> list[LogEvent]:
-    """Load normalised log events from a JSONL file."""
+    """Load normalized log events from supported file formats."""
 
-    return _load_jsonl(Path(path), LogEvent)
+    return ingest_logs(path).records
 
 
 def load_metrics(path: str | Path) -> list[MetricPoint]:
-    """Load metric points from a JSONL file."""
+    """Load normalized metric points from supported file formats."""
 
-    return _load_jsonl(Path(path), MetricPoint)
+    return ingest_metrics(path).records
 
 
 def iter_services(logs: Iterable[LogEvent], metrics: Iterable[MetricPoint]) -> list[str]:
