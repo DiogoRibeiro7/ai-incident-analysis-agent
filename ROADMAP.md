@@ -15,7 +15,7 @@
 
 ## Stage 2 — AI engineering depth
 - [ ] Retrieval over runbooks and historical incidents
-- [ ] Prompt templates for triage and remediation
+- [x] Prompt templates for triage and remediation
 - [x] Real LLM provider adapter with mock fallback
 - [ ] Output validation and retry policy
 - [ ] Trace and cost observability
