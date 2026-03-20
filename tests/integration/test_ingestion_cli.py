@@ -164,3 +164,22 @@ def test_correlate_incidents_command_outputs_incidents() -> None:
 
     assert result.exit_code == 0
     assert "incident_id" in result.stdout
+
+
+def test_run_rca_command_outputs_hypotheses() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "run-rca",
+            "--logs",
+            "data/sample/incident/anomaly_logs.csv",
+            "--metrics",
+            "data/sample/incident/anomaly_metrics.csv",
+            "--bucket-size-minutes",
+            "5",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "suspected_root_cause_service" in result.stdout

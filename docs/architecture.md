@@ -6,10 +6,11 @@
 2. Normalization layer converts timestamps to UTC and aligns events into time buckets.
 3. Anomaly detection layer applies robust statistical rules per service and globally.
 4. Correlation layer groups nearby anomalies into incident candidates and ranks likely root service with dependency hints.
-5. Prompt layer prepares grounded context.
-6. LLM layer produces a structured report.
-7. Validation layer ensures a predictable response schema.
-8. Delivery layer exposes results through CLI and API.
+5. RCA layer ranks evidence, summarizes incident features, and produces root-cause hypotheses.
+6. Prompt layer prepares grounded context.
+7. LLM layer produces a structured report.
+8. Validation layer ensures a predictable response schema.
+9. Delivery layer exposes results through CLI and API.
 
 ## Extension points
 
