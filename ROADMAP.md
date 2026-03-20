@@ -9,7 +9,7 @@
 - [x] File ingestion parity for local formats (JSONL/CSV logs, CSV/JSON metrics)
 - [x] Timeline normalization with configurable 1/5/15-minute buckets
 - [x] Deterministic anomaly detectors for logs and metrics
-- [ ] Stronger incident grouping heuristics
+- [x] Dependency-aware incident correlation heuristics
 - [ ] Better evidence ranking
 
 ## Stage 2 — AI engineering depth
