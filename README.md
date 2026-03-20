@@ -5,6 +5,7 @@ An AI engineering portfolio project that ingests logs and metrics, detects suspi
 ## What this project demonstrates
 
 - Log and metric ingestion pipelines
+- Timeline normalization and configurable time-bucket alignment
 - Incident enrichment and retrieval over operational context
 - LLM-based triage and summarisation with structured outputs
 - Guardrails and validation for agent responses
@@ -33,7 +34,9 @@ src/incident_agent/
   clients/        # External connectors (future)
   core/           # Settings and constants
   ingest/         # Parsers and normalisation
+  ingestion/      # Typed local ingestion (files + quality report)
   llm/            # LLM interfaces and adapters
+  normalization/  # Timeline alignment and bucket feature extraction
   prompts/        # Prompt builders and templates
   schemas/        # Pydantic models
   services/       # End-to-end use cases
@@ -89,6 +92,15 @@ poetry run uvicorn incident_agent.api.main:app --reload
 poetry run pytest
 ```
 
+### 6. Normalize timeline windows
+
+```bash
+poetry run incident-agent normalize-timeline \
+  --logs data/sample/incident/logs.csv \
+  --metrics data/sample/incident/metrics.json \
+  --bucket-size-minutes 5
+```
+
 ## Example use cases
 
 - Database latency spikes correlated with application errors
@@ -130,7 +142,3 @@ The scaffold currently includes:
 - add human-in-the-loop review flows
 - add alerting and incident ticket creation
 - support multi-agent workflows for deep diagnosis
-
-## Why this is a strong portfolio project
-
-This repository is meant to show AI engineering rather than prompt tinkering. A strong implementation should make it clear how incidents are ingested, how evidence is selected, how outputs are validated, how the system is tested, and how the design could be extended to production observability stacks.
