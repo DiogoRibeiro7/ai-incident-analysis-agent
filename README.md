@@ -171,6 +171,12 @@ Additional API workflow endpoints:
 - `GET /incidents?job_id=<id>` (list incidents)
 - `GET /anomalies?job_id=<id>` (list anomalies)
 
+Operator-focused CLI commands:
+- `incident-agent print-config`
+- `incident-agent list-incidents --artifact-dir <run_dir>`
+- `incident-agent show-report --artifact-dir <run_dir> --index 0`
+- `incident-agent export-report --artifact-dir <run_dir> --output-path report.md`
+
 ## LLM provider configuration
 
 Provider and model selection is centralized under `llm` in `configs/default.yaml`.
