@@ -1,0 +1,20 @@
+[
+  {
+    "scenario_id": "checkout_incident_spike",
+    "description": "Checkout service incident with latency/error/cpu/memory and availability anomalies.",
+    "logs_path": "data/sample/incident/anomaly_logs.csv",
+    "metrics_path": "data/sample/incident/anomaly_metrics.csv",
+    "expected_root_cause": "checkout-service",
+    "expected_impacted_services": ["checkout-service"],
+    "expected_min_incidents": 1
+  },
+  {
+    "scenario_id": "api_degraded_period",
+    "description": "Degraded API period with elevated latency and errors.",
+    "logs_path": "data/sample/degraded/logs.jsonl",
+    "metrics_path": "data/sample/degraded/metrics.csv",
+    "expected_root_cause": "api-service",
+    "expected_impacted_services": ["api-service"],
+    "expected_min_incidents": 1
+  }
+]

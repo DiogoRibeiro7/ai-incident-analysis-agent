@@ -12,6 +12,7 @@ An AI engineering portfolio project that ingests logs and metrics, detects suspi
 - LLM provider abstraction (mock + OpenAI) with structured report generation
 - Structured prompt templates for incident reporting from RCA artifacts
 - End-to-end pipeline orchestration with persisted artifacts
+- Evaluation harness with benchmark scenarios and mode comparisons
 - Incident enrichment and retrieval over operational context
 - LLM-based triage and summarisation with structured outputs
 - Guardrails and validation for agent responses
@@ -53,6 +54,7 @@ src/incident_agent/
 configs/          # YAML configuration
 data/sample/      # Small local examples
 tests/            # Unit and integration tests
+eval/             # Benchmark scenarios for evaluation
 ```
 
 ## Quick start
@@ -176,6 +178,21 @@ Operator-focused CLI commands:
 - `incident-agent list-incidents --artifact-dir <run_dir>`
 - `incident-agent show-report --artifact-dir <run_dir> --index 0`
 - `incident-agent export-report --artifact-dir <run_dir> --output-path report.md`
+
+### 12. Run evaluation harness
+
+```bash
+poetry run incident-agent run-eval \
+  --benchmark-path eval/benchmarks/scenarios.json \
+  --artifact-root artifacts/eval
+```
+
+Modes compared by default:
+- `heuristic-only`
+- `mock-llm`
+
+Optional:
+- `--include-real-llm` to include `real-llm` mode when credentials/config are available.
 
 ## LLM provider configuration
 
