@@ -204,3 +204,97 @@ def test_run_pipeline_command_outputs_summary(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert "final_report_count" in result.stdout
+
+
+def test_print_config_command_outputs_yaml_as_json() -> None:
+    runner = CliRunner()
+    result = runner.invoke(app, ["print-config"])
+
+    assert result.exit_code == 0
+    assert '"llm"' in result.stdout
+
+
+def test_list_incidents_and_show_report_commands(tmp_path: Path) -> None:
+    run_dir = _prepare_pipeline_artifacts(tmp_path)
+    runner = CliRunner()
+
+    list_result = runner.invoke(
+        app,
+        [
+            "list-incidents",
+            "--artifact-dir",
+            str(run_dir),
+        ],
+    )
+    show_result = runner.invoke(
+        app,
+        [
+            "show-report",
+            "--artifact-dir",
+            str(run_dir),
+            "--index",
+            "0",
+        ],
+    )
+
+    assert list_result.exit_code == 0
+    assert "Incident ID" in list_result.stdout
+    assert show_result.exit_code == 0
+    assert '"incident_id"' in show_result.stdout
+
+
+def test_export_report_command_json_and_markdown(tmp_path: Path) -> None:
+    run_dir = _prepare_pipeline_artifacts(tmp_path)
+    runner = CliRunner()
+    output_json = tmp_path / "report.json"
+    output_md = tmp_path / "report.md"
+
+    json_result = runner.invoke(
+        app,
+        [
+            "export-report",
+            "--artifact-dir",
+            str(run_dir),
+            "--output-path",
+            str(output_json),
+        ],
+    )
+    md_result = runner.invoke(
+        app,
+        [
+            "export-report",
+            "--artifact-dir",
+            str(run_dir),
+            "--output-path",
+            str(output_md),
+        ],
+    )
+
+    assert json_result.exit_code == 0
+    assert md_result.exit_code == 0
+    assert output_json.exists()
+    assert output_md.exists()
+    assert output_md.read_text(encoding="utf-8").startswith("# Incident Report")
+
+
+def _prepare_pipeline_artifacts(tmp_path: Path) -> Path:
+    runner = CliRunner()
+    artifact_root = tmp_path / "pipeline-artifacts"
+    result = runner.invoke(
+        app,
+        [
+            "run-pipeline",
+            "--logs",
+            "data/sample/incident/anomaly_logs.csv",
+            "--metrics",
+            "data/sample/incident/anomaly_metrics.csv",
+            "--artifact-root",
+            str(artifact_root),
+            "--bucket-size-minutes",
+            "5",
+        ],
+    )
+    assert result.exit_code == 0
+    runs = sorted([item for item in artifact_root.iterdir() if item.is_dir()])
+    assert runs
+    return runs[-1]

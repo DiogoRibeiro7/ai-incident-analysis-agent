@@ -10,6 +10,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from incident_agent.core.settings import load_settings_from_yaml
 from incident_agent.ingestion.logs import ingest_logs
 from incident_agent.ingestion.metrics import ingest_metrics
 from incident_agent.services.analyze import analyze_from_files
@@ -262,11 +263,231 @@ def run_pipeline_command(
     console.print_json(json.dumps(result.model_dump(mode="json")))
 
 
+@app.command("print-config")
+def print_config(
+    config: Annotated[
+        str, typer.Option(help="Path to YAML config file.")
+    ] = "configs/default.yaml",
+) -> None:
+    """Print the loaded runtime configuration."""
+
+    loaded = load_settings_from_yaml(Path(config))
+    console.print_json(json.dumps(loaded))
+
+
+@app.command("list-incidents")
+def list_incidents(
+    artifact_dir: Annotated[
+        str | None,
+        typer.Option(help="Full run artifact directory path."),
+    ] = None,
+    artifact_root: Annotated[
+        str, typer.Option(help="Root artifact directory (used with --latest).")
+    ] = "artifacts/pipeline",
+    latest: Annotated[
+        bool, typer.Option(help="Use latest run directory under artifact root.")
+    ] = True,
+) -> None:
+    """List correlated incidents from persisted pipeline artifacts."""
+
+    run_dir = _resolve_run_directory(
+        artifact_dir=artifact_dir,
+        artifact_root=artifact_root,
+        latest=latest,
+    )
+    incidents_path = run_dir / "incidents" / "incidents.json"
+    payload = _read_json(incidents_path)
+    incidents = payload.get("incidents", [])
+    if not isinstance(incidents, list):
+        raise typer.BadParameter(f"Invalid incidents payload at {incidents_path}")
+
+    table = Table(title=f"Incidents ({run_dir.name})")
+    table.add_column("Incident ID")
+    table.add_column("Primary Service")
+    table.add_column("Impacted Services")
+    table.add_column("Score", justify="right")
+    for incident in incidents:
+        if not isinstance(incident, dict):
+            continue
+        table.add_row(
+            str(incident.get("incident_id", "n/a")),
+            str(incident.get("suspected_primary_service", "n/a")),
+            ", ".join(incident.get("impacted_services", [])),
+            str(incident.get("correlation_score", "n/a")),
+        )
+    console.print(table)
+
+
+@app.command("show-report")
+def show_report(
+    incident_id: Annotated[
+        str | None, typer.Option(help="Incident ID to display.")
+    ] = None,
+    index: Annotated[
+        int, typer.Option(help="Report index (0-based) when incident_id is not provided.")
+    ] = 0,
+    artifact_dir: Annotated[
+        str | None,
+        typer.Option(help="Full run artifact directory path."),
+    ] = None,
+    artifact_root: Annotated[
+        str, typer.Option(help="Root artifact directory (used with --latest).")
+    ] = "artifacts/pipeline",
+    latest: Annotated[
+        bool, typer.Option(help="Use latest run directory under artifact root.")
+    ] = True,
+) -> None:
+    """Show one final report from persisted artifacts."""
+
+    run_dir = _resolve_run_directory(
+        artifact_dir=artifact_dir,
+        artifact_root=artifact_root,
+        latest=latest,
+    )
+    reports_path = run_dir / "reports" / "final_reports.json"
+    reports = _load_reports(reports_path)
+    report = _select_report(reports, incident_id=incident_id, index=index)
+    console.print_json(json.dumps(report))
+
+
+@app.command("export-report")
+def export_report(
+    output_path: Annotated[
+        str, typer.Option(help="Output file path (.json or .md).")
+    ],
+    incident_id: Annotated[
+        str | None, typer.Option(help="Incident ID to export.")
+    ] = None,
+    index: Annotated[
+        int, typer.Option(help="Report index (0-based) when incident_id is not provided.")
+    ] = 0,
+    artifact_dir: Annotated[
+        str | None,
+        typer.Option(help="Full run artifact directory path."),
+    ] = None,
+    artifact_root: Annotated[
+        str, typer.Option(help="Root artifact directory (used with --latest).")
+    ] = "artifacts/pipeline",
+    latest: Annotated[
+        bool, typer.Option(help="Use latest run directory under artifact root.")
+    ] = True,
+) -> None:
+    """Export one final report as JSON or Markdown."""
+
+    run_dir = _resolve_run_directory(
+        artifact_dir=artifact_dir,
+        artifact_root=artifact_root,
+        latest=latest,
+    )
+    reports_path = run_dir / "reports" / "final_reports.json"
+    reports = _load_reports(reports_path)
+    report = _select_report(reports, incident_id=incident_id, index=index)
+
+    target = Path(output_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.suffix.lower() == ".json":
+        target.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    elif target.suffix.lower() == ".md":
+        target.write_text(_report_to_markdown(report), encoding="utf-8")
+    else:
+        raise typer.BadParameter("output-path must end with .json or .md")
+    console.print(f"Exported report to {target}")
+
+
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         for row in rows:
             handle.write(json.dumps(row))
             handle.write("\n")
+
+
+def _resolve_run_directory(
+    *,
+    artifact_dir: str | None,
+    artifact_root: str,
+    latest: bool,
+) -> Path:
+    if artifact_dir:
+        path = Path(artifact_dir)
+        if not path.exists():
+            raise typer.BadParameter(f"Artifact directory not found: {artifact_dir}")
+        return path
+    if not latest:
+        raise typer.BadParameter("Provide --artifact-dir or use --latest")
+    root = Path(artifact_root)
+    if not root.exists():
+        raise typer.BadParameter(f"Artifact root not found: {artifact_root}")
+    candidates = [item for item in root.iterdir() if item.is_dir()]
+    if not candidates:
+        raise typer.BadParameter(f"No run directories found under: {artifact_root}")
+    return sorted(candidates)[-1]
+
+
+def _read_json(path: Path) -> dict[str, object]:
+    if not path.exists():
+        raise typer.BadParameter(f"Artifact file not found: {path}")
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise typer.BadParameter(f"Artifact JSON root must be object: {path}")
+    return loaded
+
+
+def _load_reports(path: Path) -> list[dict[str, object]]:
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, list):
+        raise typer.BadParameter(f"Report file must contain a JSON list: {path}")
+    reports = [row for row in loaded if isinstance(row, dict)]
+    if not reports:
+        raise typer.BadParameter(f"No reports found in: {path}")
+    return reports
+
+
+def _select_report(
+    reports: list[dict[str, object]],
+    *,
+    incident_id: str | None,
+    index: int,
+) -> dict[str, object]:
+    if incident_id is not None:
+        for report in reports:
+            if report.get("incident_id") == incident_id:
+                return report
+        raise typer.BadParameter(f"Report not found for incident_id={incident_id}")
+    if index < 0 or index >= len(reports):
+        raise typer.BadParameter(f"Report index out of range: {index}")
+    return reports[index]
+
+
+def _report_to_markdown(report: dict[str, object]) -> str:
+    remediation = _as_string_list(report.get("remediation_suggestions"))
+    facts = _as_string_list(report.get("facts"))
+    inferences = _as_string_list(report.get("inferences"))
+    uncertainties = _as_string_list(report.get("uncertainties"))
+    remediation_lines = "\n".join(f"- {item}" for item in remediation)
+    fact_lines = "\n".join(f"- {item}" for item in facts)
+    inference_lines = "\n".join(f"- {item}" for item in inferences)
+    uncertainty_lines = "\n".join(f"- {item}" for item in uncertainties)
+    return (
+        f"# Incident Report: {report.get('incident_id', 'n/a')}\n\n"
+        f"## Incident Summary\n{report.get('incident_summary', '')}\n\n"
+        f"## Root Cause Explanation\n{report.get('root_cause_explanation', '')}\n\n"
+        f"## Executive Summary\n{report.get('executive_summary', '')}\n\n"
+        f"## Engineering Handoff\n{report.get('engineering_handoff', '')}\n\n"
+        "## Remediation Suggestions\n"
+        f"{remediation_lines or '- none'}\n\n"
+        "## Facts\n"
+        f"{fact_lines or '- none'}\n\n"
+        "## Inferences\n"
+        f"{inference_lines or '- none'}\n\n"
+        "## Uncertainties\n"
+        f"{uncertainty_lines or '- none'}\n"
+    )
+
+
+def _as_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
 
 
 if __name__ == "__main__":

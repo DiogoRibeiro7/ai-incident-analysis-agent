@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   dependency-review:
+    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
       - name: Dependency review

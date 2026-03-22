@@ -164,6 +164,19 @@ Generated artifacts are saved under a run directory:
 API path for the same workflow:
 - `POST /analyze-pipeline` with file paths and optional artifact root.
 
+Additional API workflow endpoints:
+- `GET /config` (inspect runtime config)
+- `POST /analysis-jobs` (submit local file-based analysis job)
+- `GET /analysis-jobs/{job_id}/reports` (retrieve generated reports)
+- `GET /incidents?job_id=<id>` (list incidents)
+- `GET /anomalies?job_id=<id>` (list anomalies)
+
+Operator-focused CLI commands:
+- `incident-agent print-config`
+- `incident-agent list-incidents --artifact-dir <run_dir>`
+- `incident-agent show-report --artifact-dir <run_dir> --index 0`
+- `incident-agent export-report --artifact-dir <run_dir> --output-path report.md`
+
 ## LLM provider configuration
 
 Provider and model selection is centralized under `llm` in `configs/default.yaml`.

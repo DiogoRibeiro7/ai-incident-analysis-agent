@@ -11,6 +11,7 @@
 - [x] Deterministic anomaly detectors for logs and metrics
 - [x] Dependency-aware incident correlation heuristics
 - [x] RCA abstractions with explicit evidence and hypothesis artifacts
+- [x] CLI operator commands (validate, analyze, list incidents, show/export reports, print config)
 - [ ] Better evidence ranking
 
 ## Stage 2 — AI engineering depth
