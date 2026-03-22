@@ -87,3 +87,7 @@ rca:
   downstream_bonus: 0.8
   ambiguity_delta: 0.75
   dependency_graph_path: configs/service_dependencies.yaml
+evaluation:
+  benchmark_path: eval/benchmarks/scenarios.json
+  artifact_root: artifacts/eval
+  include_real_llm: false

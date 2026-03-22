@@ -21,7 +21,7 @@
 - [x] End-to-end pipeline orchestration with persisted artifacts
 - [ ] Output validation and retry policy
 - [ ] Trace and cost observability
-- [ ] Evaluation dataset and scorer
+- [x] Evaluation dataset and scorer
 
 ## Stage 3 — Production integration
 - [ ] CloudWatch connector

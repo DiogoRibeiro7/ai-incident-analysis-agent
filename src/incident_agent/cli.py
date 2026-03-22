@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.table import Table
 
 from incident_agent.core.settings import load_settings_from_yaml
+from incident_agent.eval.runner import run_evaluation
 from incident_agent.ingestion.logs import ingest_logs
 from incident_agent.ingestion.metrics import ingest_metrics
 from incident_agent.services.analyze import analyze_from_files
@@ -392,6 +393,34 @@ def export_report(
     else:
         raise typer.BadParameter("output-path must end with .json or .md")
     console.print(f"Exported report to {target}")
+
+@app.command("run-eval")
+def run_eval_command(
+    benchmark_path: Annotated[
+        str, typer.Option(help="Path to benchmark scenarios JSON file.")
+    ] = "eval/benchmarks/scenarios.json",
+    config: Annotated[
+        str, typer.Option(help="Path to YAML config file.")
+    ] = "configs/default.yaml",
+    artifact_root: Annotated[
+        str, typer.Option(help="Root directory for evaluation artifacts.")
+    ] = "artifacts/eval",
+    include_real_llm: Annotated[
+        bool,
+        typer.Option(
+            help="Also run real-llm mode (requires openai provider credentials/config)."
+        ),
+    ] = False,
+) -> None:
+    """Run evaluation harness across benchmark scenarios."""
+
+    result = run_evaluation(
+        benchmark_path=benchmark_path,
+        config_path=config,
+        artifact_root=artifact_root,
+        include_real_llm=include_real_llm,
+    )
+    console.print_json(json.dumps(result.model_dump(mode="json")))
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:

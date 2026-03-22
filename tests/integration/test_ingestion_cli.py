@@ -298,3 +298,20 @@ def _prepare_pipeline_artifacts(tmp_path: Path) -> Path:
     runs = sorted([item for item in artifact_root.iterdir() if item.is_dir()])
     assert runs
     return runs[-1]
+
+def test_run_eval_command_outputs_summary(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "run-eval",
+            "--benchmark-path",
+            "eval/benchmarks/scenarios.json",
+            "--artifact-root",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "records" in result.stdout
+    assert "summaries" in result.stdout
