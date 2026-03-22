@@ -1,6 +1,9 @@
 app_name: ai-incident-analysis-agent
 environment: local
 llm_provider: mock
+observability:
+  log_level: INFO
+  json_logs: true
 llm:
   provider: mock
   report_model: gpt-4.1-mini

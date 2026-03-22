@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 import httpx
 import pytest
 
@@ -37,6 +39,7 @@ def test_openai_provider_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_openai_provider_retries_rate_limit_then_succeeds(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setenv("INCIDENT_AGENT_OPENAI_API_KEY", "test-key")
     responses = [
@@ -74,8 +77,12 @@ def test_openai_provider_retries_rate_limit_then_succeeds(
 
     monkeypatch.setattr("incident_agent.llm.openai_provider.httpx.Client", FakeClient)
     provider = OpenAIProvider(max_retries=2, retry_backoff_seconds=0.0)
+    caplog.set_level(logging.INFO)
     report = provider.generate_incident_report("prompt", model="gpt-4.1-mini")
     assert report.title == "A"
+    events = [getattr(record, "event", None) for record in caplog.records]
+    assert "provider.request.retry" in events
+    assert "provider.request.succeeded" in events
 
 
 def test_openai_provider_rate_limit_exhaustion_raises(

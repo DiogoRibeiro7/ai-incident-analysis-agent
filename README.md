@@ -194,6 +194,27 @@ Modes compared by default:
 Optional:
 - `--include-real-llm` to include `real-llm` mode when credentials/config are available.
 
+## Runtime logging and tracing
+
+The pipeline emits machine-readable JSON logs with:
+- `run_id` and `request_id` correlation fields
+- stage `start/completed/failed` events
+- stage counts and duration in milliseconds
+- provider request attempts, retries, and failures
+
+Default config (`configs/default.yaml`):
+- `observability.log_level: INFO`
+- `observability.json_logs: true`
+
+Example:
+```bash
+poetry run incident-agent run-pipeline \
+  --logs data/sample/incident/anomaly_logs.csv \
+  --metrics data/sample/incident/anomaly_metrics.csv 2> logs.jsonl
+```
+
+See `docs/observability.md` for event names and fields.
+
 ## LLM provider configuration
 
 Provider and model selection is centralized under `llm` in `configs/default.yaml`.
