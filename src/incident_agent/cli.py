@@ -19,9 +19,11 @@ from incident_agent.services.detect import detect_anomalies_from_files
 from incident_agent.services.normalize import normalize_from_files
 from incident_agent.services.pipeline import run_pipeline_from_files
 from incident_agent.services.rca import run_rca_from_files
+from incident_agent.utils.observability import configure_logging
 
 app = typer.Typer(help="CLI for the AI incident analysis agent.")
 console = Console()
+configure_logging()
 
 
 @app.command()

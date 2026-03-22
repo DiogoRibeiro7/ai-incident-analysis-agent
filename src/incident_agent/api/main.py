@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import json
+import logging
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from time import perf_counter
 from typing import Annotated, Any
+from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from incident_agent.agents.incident_agent import IncidentAnalysisAgent
 from incident_agent.api.store import AnalysisJobRecord, AnalysisJobStore
-from incident_agent.core.settings import load_settings_from_yaml
+from incident_agent.core.settings import load_observability_config, load_settings_from_yaml
 from incident_agent.llm.factory import create_provider, load_llm_config
 from incident_agent.schemas.anomaly import AnomalyCandidate
 from incident_agent.schemas.events import LogEvent, MetricPoint
@@ -20,6 +25,12 @@ from incident_agent.schemas.incident import CorrelatedIncidentCandidate
 from incident_agent.schemas.pipeline import PipelineRunResult
 from incident_agent.schemas.report import IncidentReport
 from incident_agent.services.pipeline import run_pipeline_from_files
+from incident_agent.utils.observability import (
+    bind_context,
+    configure_logging,
+    get_logger,
+    log_event,
+)
 
 app = FastAPI(
     title="AI Incident Analysis Agent",
@@ -27,6 +38,26 @@ app = FastAPI(
     description="Local incident analysis service with file-based workflow execution.",
 )
 app.state.job_store = AnalysisJobStore()
+logger = get_logger(__name__)
+
+
+def _setup_observability() -> None:
+    try:
+        config = load_observability_config()
+        configure_logging(level=config.log_level, json_logs=config.json_logs)
+    except Exception as error:
+        configure_logging()
+        log_event(
+            logger,
+            level=logging.WARNING,
+            event="observability.config.fallback",
+            message="failed to load observability config; using defaults",
+            error_type=type(error).__name__,
+            error=str(error),
+        )
+
+
+_setup_observability()
 
 
 class ErrorResponse(BaseModel):
@@ -113,6 +144,53 @@ def get_job_store(request: Request) -> AnalysisJobStore:
     if not isinstance(store, AnalysisJobStore):
         raise RuntimeError("Application job store is not initialized.")
     return store
+
+
+@app.middleware("http")
+async def request_context_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    request_id = request.headers.get("x-request-id") or uuid4().hex
+    start = perf_counter()
+    with bind_context(request_id=request_id):
+        log_event(
+            logger,
+            level=logging.INFO,
+            event="api.request.started",
+            message="api request started",
+            method=request.method,
+            path=request.url.path,
+        )
+        try:
+            response = await call_next(request)
+        except Exception as error:
+            duration_ms = round((perf_counter() - start) * 1000, 2)
+            log_event(
+                logger,
+                level=logging.ERROR,
+                event="api.request.failed",
+                message="api request failed",
+                method=request.method,
+                path=request.url.path,
+                duration_ms=duration_ms,
+                error_type=type(error).__name__,
+                error=str(error),
+            )
+            raise
+        duration_ms = round((perf_counter() - start) * 1000, 2)
+        response.headers["x-request-id"] = request_id
+        log_event(
+            logger,
+            level=logging.INFO,
+            event="api.request.completed",
+            message="api request completed",
+            method=request.method,
+            path=request.url.path,
+            duration_ms=duration_ms,
+            status_code=response.status_code,
+        )
+        return response
 
 
 @app.get("/health", summary="Health check")
