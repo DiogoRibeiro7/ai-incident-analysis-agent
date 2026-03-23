@@ -13,6 +13,7 @@ Measure incident analysis quality across benchmark scenarios and compare output 
 - Benchmark loader: `src/incident_agent/eval/benchmarks.py`
 - Schemas: `src/incident_agent/schemas/eval.py`
 - Benchmarks: `eval/benchmarks/scenarios.json`
+- Synthetic benchmarks: `eval/benchmarks/synthetic_scenarios.json`
 
 ## Metrics
 
@@ -51,3 +52,16 @@ poetry run incident-agent run-eval \
 ```
 
 `real-llm` requires `llm.provider` support and credentials in config/env.
+
+## Synthetic generation
+
+Benchmark files may include `generator` definitions instead of concrete input files.
+
+When present, the benchmark loader generates:
+- `logs.csv`
+- `metrics.csv`
+- `metadata.json`
+
+Generated files are written under a sibling `generated/` directory next to the benchmark file.
+
+See `docs/synthetic_scenarios.md` for supported scenario types and the CLI workflow.

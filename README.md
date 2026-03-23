@@ -169,6 +169,27 @@ Default compared modes:
 Optional:
 - `--include-real-llm` to include `real-llm` mode
 
+## Synthetic scenarios
+
+The project can generate its own benchmark datasets for:
+- latency degradation
+- error burst
+- dependency cascade
+- traffic drop
+- resource exhaustion
+- multi-service partial outage
+
+Example:
+
+```bash
+poetry run incident-agent generate-scenario \
+  --scenario-id demo-latency \
+  --scenario-type latency_degradation \
+  --root-cause-service checkout-service
+```
+
+See `eval/benchmarks/synthetic_scenarios.json` and `docs/synthetic_scenarios.md`.
+
 ## Repository layout
 
 ```text
@@ -203,3 +224,4 @@ eval/                # Benchmark scenario definitions
 - `docs/llm_provider.md`
 - `docs/prompting.md`
 - `docs/rca.md`
+- `docs/synthetic_scenarios.md`
