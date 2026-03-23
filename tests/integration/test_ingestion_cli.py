@@ -243,11 +243,12 @@ def test_list_incidents_and_show_report_commands(tmp_path: Path) -> None:
     assert '"incident_id"' in show_result.stdout
 
 
-def test_export_report_command_json_and_markdown(tmp_path: Path) -> None:
+def test_export_report_command_json_markdown_and_html(tmp_path: Path) -> None:
     run_dir = _prepare_pipeline_artifacts(tmp_path)
     runner = CliRunner()
     output_json = tmp_path / "report.json"
     output_md = tmp_path / "report.md"
+    output_html = tmp_path / "report.html"
 
     json_result = runner.invoke(
         app,
@@ -269,12 +270,25 @@ def test_export_report_command_json_and_markdown(tmp_path: Path) -> None:
             str(output_md),
         ],
     )
+    html_result = runner.invoke(
+        app,
+        [
+            "export-report",
+            "--artifact-dir",
+            str(run_dir),
+            "--output-path",
+            str(output_html),
+        ],
+    )
 
     assert json_result.exit_code == 0
     assert md_result.exit_code == 0
+    assert html_result.exit_code == 0
     assert output_json.exists()
     assert output_md.exists()
+    assert output_html.exists()
     assert output_md.read_text(encoding="utf-8").startswith("# Incident Report")
+    assert "<!DOCTYPE html>" in output_html.read_text(encoding="utf-8")
 
 
 def _prepare_pipeline_artifacts(tmp_path: Path) -> Path:

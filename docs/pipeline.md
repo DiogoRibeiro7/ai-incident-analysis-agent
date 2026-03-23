@@ -53,6 +53,23 @@ For each run (`<artifact_root>/<run_id>/`):
 - `reports/final_reports.json`
 - `run_summary.json`
 
+## Report export formats
+
+One persisted report can be exported via CLI as:
+- JSON
+- Markdown
+- HTML
+
+Example:
+
+```bash
+poetry run incident-agent export-report \
+  --artifact-dir artifacts/pipeline/<run_id> \
+  --output-path report.html
+```
+
+A polished sample HTML export is included at `docs/sample_incident_report.html`.
+
 ## Sample scenario
 
 Use the bundled scenario:
