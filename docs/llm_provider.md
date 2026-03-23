@@ -31,7 +31,7 @@ OpenAI provider includes:
 - bounded retries for rate limits (`429`) and transient failures (`5xx`/network)
 - malformed JSON response handling
 
-If provider calls fail during incident analysis, the agent degrades gracefully by returning a structured fallback `IncidentReport` with `provider_error` evidence instead of crashing the workflow.
+In the end-to-end pipeline, provider failures degrade report generation rather than discarding upstream artifacts. The run summary records warnings and failure summaries for incomplete runs.
 
 ## Configuration and credentials
 

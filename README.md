@@ -6,44 +6,79 @@
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
 [![Poetry](https://img.shields.io/badge/deps-poetry-informational.svg)](https://python-poetry.org/)
 
-AI engineering project for incident analysis over logs and metrics. The system ingests operational signals, normalizes timelines, detects anomalies, correlates incidents, runs deterministic RCA, and generates grounded summaries.
+Incident analysis system for logs and metrics, built as an AI engineering portfolio project. It ingests operational data, normalizes it into aligned time windows, detects anomalies, correlates incident candidates, runs deterministic RCA, and generates structured reports through a provider abstraction.
 
-## Highlights
+## Motivation
 
-- End-to-end analysis pipeline with persisted artifacts
-- Deterministic anomaly detection and dependency-aware incident correlation
-- RCA evidence bundles and ranked root-cause hypotheses
-- LLM abstraction (mock + OpenAI) with structured output schemas
-- Evaluation harness for benchmark scenarios and mode comparison
-- JSON observability logs with run/request IDs, timings, retries, and failures
-- FastAPI + CLI interfaces for local runs and demos
+Most incident response demos jump directly to a model prompt and skip the engineering layers that make incident tooling trustworthy. This project focuses on those layers:
+- typed ingestion and validation
+- deterministic preprocessing and heuristics
+- explicit evidence and RCA artifacts
+- provider abstraction and structured outputs
+- observability, caching, and degraded execution
+- evaluation workflows and synthetic benchmark generation
 
-## Table of contents
+The result is a repository that demonstrates practical AI systems engineering rather than only prompt design.
 
-- [Quick start](#quick-start)
-- [Main commands](#main-commands)
-- [API endpoints](#api-endpoints)
-- [Configuration](#configuration)
-- [Observability](#observability)
-- [Evaluation harness](#evaluation-harness)
-- [Repository layout](#repository-layout)
-- [Project docs](#project-docs)
+## What is implemented
 
-## Quick start
+- Local ingestion for logs and metrics with validation and quality reporting
+- Timeline normalization into configurable 1, 5, or 15-minute buckets
+- Deterministic anomaly detectors for latency, error rate, CPU, memory, traffic, and availability
+- Dependency-aware incident correlation
+- Root-cause analysis artifacts with ranked evidence and confidence scores
+- Prompt rendering from structured RCA context
+- Mock and OpenAI provider support
+- End-to-end pipeline execution with persisted artifacts
+- CLI and FastAPI interfaces
+- JSON observability logging with run/request correlation
+- Fault-tolerant execution with retries, caches, and degraded-run summaries
+- Evaluation harness with static and synthetic benchmark scenarios
+- Multi-format report export: JSON, Markdown, and HTML
 
-### 1. Install dependencies
+## Architecture
+
+The system is organized as a layered pipeline:
+
+1. Ingestion loads local files and produces typed `LogEvent` and `MetricPoint` records.
+2. Normalization converts timestamps to UTC and aligns logs and metrics into timeline buckets.
+3. Anomaly detection applies deterministic rules with rolling baselines and threshold guards.
+4. Correlation groups related anomalies into incident candidates using time proximity and service dependency relationships.
+5. RCA ranks evidence, summarizes incident features, and proposes a likely root-cause service.
+6. Prompt rendering converts RCA artifacts into grounded prompt inputs.
+7. Provider execution generates final summaries through a mock or OpenAI backend.
+8. Export and delivery expose artifacts through the CLI, API, and file-based reports.
+
+If you want the module-by-module view, start with [architecture.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/architecture.md).
+
+## Data Model
+
+Core records:
+- `LogEvent`: normalized application or infrastructure log line
+- `MetricPoint`: normalized metric observation
+- `TimelineEvent` and `TimelineBucketFeatures`: aligned timeline representations
+- `AnomalyCandidate`: first-pass detector output
+- `CorrelatedIncidentCandidate`: grouped anomaly cluster with a suspected primary service
+- `EvidenceBundle`, `IncidentSummaryFeatures`, `RootCauseHypothesis`: RCA artifacts
+- `FinalIncidentReport`: canonical user-facing report schema
+
+The canonical report schema lives in [final_report.py](C:/Users/diogo/work_code/ai-incident-analysis-agent/src/incident_agent/schemas/final_report.py).
+
+## Quick Start
+
+Install dependencies:
 
 ```bash
 poetry install
 ```
 
-### 2. Run tests
+Run the test suite:
 
 ```bash
 poetry run pytest
 ```
 
-### 3. Run full pipeline on sample data
+Run the full pipeline on sample incident data:
 
 ```bash
 poetry run incident-agent run-pipeline \
@@ -53,32 +88,53 @@ poetry run incident-agent run-pipeline \
   --bucket-size-minutes 5
 ```
 
-### 4. Run API locally
+Run the API locally:
 
 ```bash
 poetry run uvicorn incident_agent.api.main:app --reload
 ```
 
-## Main commands
+## How the Pipeline Works
 
-### Data validation and ingestion
+The default pipeline command performs:
+- ingestion
+- normalization
+- anomaly detection
+- incident correlation
+- RCA
+- final report generation
+- artifact persistence
+
+Each run writes a timestamped artifact directory containing:
+- `normalized/timeline.json`
+- `anomalies/anomalies.json`
+- `incidents/incidents.json`
+- `rca/rca_hypotheses.json`
+- `reports/final_reports.json`
+- `run_summary.json`
+
+`run_summary.json` captures warnings, degraded execution state, completed stages, and failure summaries.
+
+## CLI Usage
+
+Validate datasets:
 
 ```bash
 poetry run incident-agent validate-data \
   --logs data/sample/incident/logs.csv \
   --metrics data/sample/incident/metrics.json
+```
 
+Persist normalized ingestion artifacts:
+
+```bash
 poetry run incident-agent ingest-data \
   --logs data/sample/degraded/logs.jsonl \
   --metrics data/sample/degraded/metrics.csv \
   --output-dir artifacts/ingestion/degraded
 ```
 
-Supported formats:
-- logs: `.jsonl`, `.csv`
-- metrics: `.csv`, `.json`, `.jsonl`
-
-### Stage-by-stage analysis
+Run stage-by-stage analysis:
 
 ```bash
 poetry run incident-agent normalize-timeline --logs <logs> --metrics <metrics>
@@ -87,100 +143,18 @@ poetry run incident-agent correlate-incidents --logs <logs> --metrics <metrics>
 poetry run incident-agent run-rca --logs <logs> --metrics <metrics>
 ```
 
-### Operator commands
+Operator commands:
 
 ```bash
 poetry run incident-agent print-config
 poetry run incident-agent list-incidents --artifact-dir <run_dir>
 poetry run incident-agent show-report --artifact-dir <run_dir> --index 0
+poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.json
 poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.md
 poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.html
 ```
 
-## API endpoints
-
-Core:
-- `GET /health`
-- `GET /config`
-- `POST /analyze`
-- `POST /analyze-pipeline`
-
-Job workflow:
-- `POST /analysis-jobs`
-- `GET /analysis-jobs/{job_id}/reports`
-- `GET /incidents?job_id=<id>`
-- `GET /anomalies?job_id=<id>`
-
-## Configuration
-
-Main config file: `configs/default.yaml`
-
-Key sections:
-- `llm` for provider/model/retry settings
-- `normalization`, `anomaly_detection`, `correlation`, `rca` for analysis logic
-- `observability` for logging format and level
-
-OpenAI provider setup:
-1. Set `llm.provider: openai`
-2. Export `INCIDENT_AGENT_OPENAI_API_KEY=<your_api_key>`
-
-## Observability
-
-Pipeline and provider execution emit machine-readable JSON logs, including:
-- `run_id` and `request_id`
-- stage lifecycle (`start/completed/failed`)
-- event counts and `duration_ms`
-- provider attempts, retries, and failures
-
-Example:
-
-```bash
-poetry run incident-agent run-pipeline \
-  --logs data/sample/incident/anomaly_logs.csv \
-  --metrics data/sample/incident/anomaly_metrics.csv 2> logs.jsonl
-```
-
-See `docs/observability.md` for event names and fields.
-
-## Resilience and caching
-
-The pipeline supports:
-- bounded provider retries
-- disk caching for deterministic LLM calls
-- disk caching for intermediate pipeline stages
-- degraded execution when logs or metrics are partially missing
-- persisted failure summaries in `run_summary.json`
-
-Configuration lives under `resilience` in `configs/default.yaml`.
-
-## Evaluation harness
-
-Run benchmark scenarios and compare modes:
-
-```bash
-poetry run incident-agent run-eval \
-  --benchmark-path eval/benchmarks/scenarios.json \
-  --artifact-root artifacts/eval
-```
-
-Default compared modes:
-- `heuristic-only`
-- `mock-llm`
-
-Optional:
-- `--include-real-llm` to include `real-llm` mode
-
-## Synthetic scenarios
-
-The project can generate its own benchmark datasets for:
-- latency degradation
-- error burst
-- dependency cascade
-- traffic drop
-- resource exhaustion
-- multi-service partial outage
-
-Example:
+Generate synthetic incident scenarios:
 
 ```bash
 poetry run incident-agent generate-scenario \
@@ -189,41 +163,122 @@ poetry run incident-agent generate-scenario \
   --root-cause-service checkout-service
 ```
 
-See `eval/benchmarks/synthetic_scenarios.json` and `docs/synthetic_scenarios.md`.
+Run the evaluation harness:
 
-## Repository layout
+```bash
+poetry run incident-agent run-eval \
+  --benchmark-path eval/benchmarks/scenarios.json \
+  --artifact-root artifacts/eval
+```
+
+## API Usage
+
+Core endpoints:
+- `GET /health`
+- `GET /config`
+- `POST /analyze`
+- `POST /analyze-pipeline`
+
+Job-oriented endpoints:
+- `POST /analysis-jobs`
+- `GET /analysis-jobs/{job_id}/reports`
+- `GET /incidents?job_id=<id>`
+- `GET /anomalies?job_id=<id>`
+
+Example pipeline request:
+
+```json
+{
+  "logs_path": "data/sample/incident/anomaly_logs.csv",
+  "metrics_path": "data/sample/incident/anomaly_metrics.csv",
+  "config_path": "configs/default.yaml",
+  "artifact_root": "artifacts/pipeline",
+  "bucket_size_minutes": 5
+}
+```
+
+## Evaluation Overview
+
+The evaluation harness compares:
+- `heuristic-only`
+- `mock-llm`
+- optional `real-llm`
+
+It records:
+- root-cause correctness
+- impacted service correctness
+- factual grounding
+- hallucination rate
+- report completeness
+- latency
+
+Benchmarks can be backed by static files or generated on demand through synthetic scenario definitions.
+
+## Observability, Caching, and Resilience
+
+The project includes:
+- structured JSON logs with `run_id` and `request_id`
+- bounded provider retries
+- disk caching for deterministic LLM calls
+- disk caching for intermediate pipeline stages
+- degraded execution when one dataset is unavailable
+
+This makes repeated runs safer for demos and easier to debug.
+
+## Limitations
+
+Current limitations are explicit:
+- ingestion is local-file based; there are no live observability platform connectors yet
+- retrieval over runbooks and incident history is not implemented
+- RCA is heuristic, not learned
+- OpenAI is the only real provider currently supported
+- token accounting and cost reporting are not implemented
+- deployment packaging and production infrastructure are not included
+
+## Future Work
+
+Logical next steps for the project are:
+- add retrieval over runbooks and historical incidents
+- add live connectors for systems like Grafana, CloudWatch, or Datadog
+- improve evidence ranking and output validation policies
+- add deployment manifests and operational packaging
+- extend provider support and richer evaluation metrics
+
+## Repository Layout
 
 ```text
 src/incident_agent/
-  agents/            # Agent orchestration
   api/               # FastAPI application
-  core/              # Runtime settings
-  ingestion/         # Typed file ingestion and quality reports
-  normalization/     # Timeline alignment and bucket features
   anomaly_detection/ # Deterministic detectors
   correlation/       # Incident correlation engine
-  rca/               # Evidence ranking + root-cause hypotheses
-  prompts/           # Prompt templates and renderers
+  eval/              # Evaluation harness
+  export/            # Report serializers
+  ingestion/         # Typed ingestion and quality reports
   llm/               # Provider abstraction and adapters
-  eval/              # Evaluation harness implementation
-  schemas/           # Pydantic contracts
+  normalization/     # Timeline alignment and bucket aggregation
+  prompts/           # Prompt templates and renderers
+  rca/               # Root-cause analysis artifacts and scoring
+  schemas/           # Canonical contracts
   services/          # End-to-end workflows
-  utils/             # Shared utilities (including observability)
-configs/             # YAML configuration
+  synthetic/         # Synthetic scenario generation
+  utils/             # Shared helpers
+configs/             # Runtime configuration
 data/sample/         # Example datasets
-docs/                # Design and usage docs
+docs/                # Architecture and usage documentation
+eval/                # Benchmark definitions
 tests/               # Unit and integration tests
-eval/                # Benchmark scenario definitions
 ```
 
-## Project docs
+## Documentation Index
 
-- `docs/architecture.md`
-- `docs/pipeline.md`
-- `docs/observability.md`
-- `docs/evaluation.md`
-- `docs/llm_provider.md`
-- `docs/prompting.md`
-- `docs/rca.md`
-- `docs/sample_incident_report.html`
-- `docs/synthetic_scenarios.md`
+- [architecture.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/architecture.md)
+- [ingestion.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/ingestion.md)
+- [anomaly_detection.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/anomaly_detection.md)
+- [correlation.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/correlation.md)
+- [rca.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/rca.md)
+- [prompting.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/prompting.md)
+- [evaluation.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/evaluation.md)
+- [pipeline.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/pipeline.md)
+- [observability.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/observability.md)
+- [synthetic_scenarios.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/synthetic_scenarios.md)
+- [sample_incident_report.html](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/sample_incident_report.html)
