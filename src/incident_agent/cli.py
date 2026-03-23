@@ -23,6 +23,7 @@ from incident_agent.schemas.eval import (
 from incident_agent.schemas.final_report import FinalIncidentReport
 from incident_agent.services.analyze import analyze_from_files
 from incident_agent.services.correlate import correlate_incidents_from_files
+from incident_agent.services.demo import run_demo
 from incident_agent.services.detect import detect_anomalies_from_files
 from incident_agent.services.normalize import normalize_from_files
 from incident_agent.services.pipeline import run_pipeline_from_files
@@ -442,6 +443,26 @@ def generate_scenario_command(
         output_root=output_dir,
     )
     console.print_json(json.dumps(scenario.model_dump(mode="json")))
+
+
+@app.command("run-demo")
+def run_demo_command(
+    output_dir: Annotated[
+        str, typer.Option(help="Stable output directory for the demo run.")
+    ] = "artifacts/demo/portfolio-demo",
+    config: Annotated[str, typer.Option(help="Path to YAML config file.")] = "configs/default.yaml",
+    include_html: Annotated[
+        bool, typer.Option(help="Also export a polished HTML report.")
+    ] = True,
+) -> None:
+    """Run the deterministic portfolio demo and write stable artifacts."""
+
+    result = run_demo(
+        output_root=output_dir,
+        config_path=config,
+        include_html=include_html,
+    )
+    console.print_json(json.dumps(result.model_dump(mode="json")))
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
