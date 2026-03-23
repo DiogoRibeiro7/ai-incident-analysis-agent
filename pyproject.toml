@@ -49,8 +49,18 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-addopts = "-q"
+addopts = "--cov=src/incident_agent --cov-report=term-missing --cov-report=xml --cov-fail-under=85 -q"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/incident_agent"]
+
+[tool.coverage.report]
+skip_empty = true
+show_missing = true
+fail_under = 85
+omit = ["src/incident_agent/__init__.py"]
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]

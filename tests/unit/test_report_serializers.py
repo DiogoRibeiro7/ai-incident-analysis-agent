@@ -16,12 +16,10 @@ def _report() -> FinalIncidentReport:
         incident_summary="Checkout latency degraded for 15 minutes.",
         root_cause_explanation="Gateway timeout cascade increased checkout latency and errors.",
         executive_summary=(
-            "Customer-facing checkout performance degraded "
-            "with partial request loss."
+            "Customer-facing checkout performance degraded with partial request loss."
         ),
         engineering_handoff=(
-            "Review upstream timeout changes and dependency "
-            "saturation around 11:15 UTC."
+            "Review upstream timeout changes and dependency saturation around 11:15 UTC."
         ),
         remediation_suggestions=["Rollback timeout change", "Add circuit breaker protections"],
         facts=["Latency rose from 120ms baseline to 1450ms", "Error rate peaked at 18%"],
@@ -52,6 +50,6 @@ def test_serialize_report_as_html_renders_standalone_document() -> None:
     html = serialize_report_as_html(_report())
 
     assert html.startswith("<!DOCTYPE html>")
-    assert "<html lang=\"en\">" in html
+    assert '<html lang="en">' in html
     assert "AI Incident Analysis" in html
     assert "Checkout latency degraded for 15 minutes." in html

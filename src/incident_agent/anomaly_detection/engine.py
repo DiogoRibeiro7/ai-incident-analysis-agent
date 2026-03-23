@@ -198,10 +198,7 @@ def _extract_metric_value(event: TimelineEvent, *, metric_kind: str) -> float | 
         return None
 
     if metric_kind == "traffic":
-        if any(
-            name in metric_name
-            for name in ["request_count", "traffic", "throughput", "rps"]
-        ):
+        if any(name in metric_name for name in ["request_count", "traffic", "throughput", "rps"]):
             return event.value
         return None
 

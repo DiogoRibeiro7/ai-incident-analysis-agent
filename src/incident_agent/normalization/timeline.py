@@ -155,13 +155,9 @@ def _summarize_bucket(
 ) -> TimelineBucketFeatures:
     bucket_end = bucket_start + timedelta(minutes=config.bucket_size_minutes)
     log_events = [event for event in events if event.source == "log"]
-    error_count = sum(
-        1 for event in log_events if event.severity in {"ERROR", "CRITICAL"}
-    )
+    error_count = sum(1 for event in log_events if event.severity in {"ERROR", "CRITICAL"})
     warn_count = sum(1 for event in log_events if event.severity == "WARN")
-    service_failure_signals = sum(
-        1 for event in events if event.signal == "service_failure"
-    )
+    service_failure_signals = sum(1 for event in events if event.signal == "service_failure")
 
     latency_values = _metric_values(events, signal="latency")
     cpu_values = _metric_values(events, signal="cpu")
@@ -187,11 +183,7 @@ def _summarize_bucket(
 
 
 def _metric_values(events: list[TimelineEvent], *, signal: str) -> list[float]:
-    return [
-        event.value
-        for event in events
-        if event.signal == signal and event.value is not None
-    ]
+    return [event.value for event in events if event.signal == signal and event.value is not None]
 
 
 def _percentile(values: list[float], *, percentile: int) -> float | None:

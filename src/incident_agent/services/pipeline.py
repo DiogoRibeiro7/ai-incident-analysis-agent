@@ -302,8 +302,7 @@ def run_pipeline_from_files(
                         )
                     )
                     warnings.append(
-                        "Final report generation failed; "
-                        "upstream artifacts were preserved."
+                        "Final report generation failed; upstream artifacts were preserved."
                     )
                     reports = []
                 log_event(
@@ -449,9 +448,7 @@ def _generate_final_reports(
         inferences = [hypothesis.rationale]
         uncertainties = hypothesis.unresolved_ambiguities
         remediation_suggestions = [
-            line.strip("- ").strip()
-            for line in remediation_text.splitlines()
-            if line.strip()
+            line.strip("- ").strip() for line in remediation_text.splitlines() if line.strip()
         ][:5]
         if not remediation_suggestions:
             remediation_suggestions = [remediation_text]
@@ -548,16 +545,13 @@ def _load_records_with_degradation(
         if not allow_missing:
             raise
         message = (
-            f"{dataset_name} input invalid at {path}: {error}; "
-            "continuing with available data."
+            f"{dataset_name} input invalid at {path}: {error}; continuing with available data."
         )
     else:
         return []
 
     warnings.append(message)
-    failure_summaries.append(
-        PipelineFailureSummary(stage="ingest", message=message, fatal=False)
-    )
+    failure_summaries.append(PipelineFailureSummary(stage="ingest", message=message, fatal=False))
     log_event(
         logger,
         level=logging.WARNING,

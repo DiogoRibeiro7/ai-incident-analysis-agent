@@ -78,6 +78,12 @@ Run the test suite:
 poetry run pytest
 ```
 
+Run the full local quality gate:
+
+```bash
+make quality
+```
+
 Run the full pipeline on sample incident data:
 
 ```bash
@@ -271,6 +277,7 @@ tests/               # Unit and integration tests
 
 ## Documentation Index
 
+- [CONTRIBUTING.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/CONTRIBUTING.md)
 - [architecture.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/architecture.md)
 - [ingestion.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/ingestion.md)
 - [anomaly_detection.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/anomaly_detection.md)
