@@ -451,9 +451,7 @@ def run_demo_command(
         str, typer.Option(help="Stable output directory for the demo run.")
     ] = "artifacts/demo/portfolio-demo",
     config: Annotated[str, typer.Option(help="Path to YAML config file.")] = "configs/default.yaml",
-    include_html: Annotated[
-        bool, typer.Option(help="Also export a polished HTML report.")
-    ] = True,
+    include_html: Annotated[bool, typer.Option(help="Also export a polished HTML report.")] = True,
 ) -> None:
     """Run the deterministic portfolio demo and write stable artifacts."""
 
