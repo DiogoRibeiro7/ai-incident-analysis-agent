@@ -19,6 +19,6 @@ def analyze_from_files(
     logs = load_logs(log_path)
     metrics = load_metrics(metric_path)
     llm_config = load_llm_config(config_path)
-    provider = create_provider(llm_config)
+    provider = create_provider(llm_config, config_path=config_path)
     agent = IncidentAnalysisAgent(provider=provider, report_model=llm_config.report_model)
     return agent.analyze(logs=logs, metrics=metrics)

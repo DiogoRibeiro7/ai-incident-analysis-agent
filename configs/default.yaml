@@ -4,6 +4,13 @@ llm_provider: mock
 observability:
   log_level: INFO
   json_logs: true
+resilience:
+  enable_llm_cache: true
+  llm_cache_dir: artifacts/cache/llm
+  enable_intermediate_cache: true
+  intermediate_cache_dir: artifacts/cache/pipeline
+  allow_missing_logs: true
+  allow_missing_metrics: true
 llm:
   provider: mock
   report_model: gpt-4.1-mini

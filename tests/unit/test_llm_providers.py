@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import httpx
 import pytest
 
 from incident_agent.llm.base import LLMProviderError, LLMRateLimitError, LLMResponseFormatError
+from incident_agent.llm.cache import CachedLLMProvider
 from incident_agent.llm.factory import LLMConfig, create_provider
 from incident_agent.llm.mock import MockLLMProvider
 from incident_agent.llm.openai_provider import OpenAIProvider
-from incident_agent.schemas.llm import LLMCompletionRequest, LLMStructuredReportRequest
+from incident_agent.schemas.llm import (
+    LLMCompletionRequest,
+    LLMCompletionResponse,
+    LLMStructuredReportRequest,
+)
 
 
 def test_mock_provider_supports_plain_and_structured_calls() -> None:
@@ -28,7 +34,27 @@ def test_mock_provider_supports_plain_and_structured_calls() -> None:
 
 def test_factory_creates_mock_provider() -> None:
     provider = create_provider(LLMConfig(provider="mock"))
-    assert isinstance(provider, MockLLMProvider)
+    assert isinstance(provider, CachedLLMProvider)
+
+
+def test_cached_provider_reuses_deterministic_completion(tmp_path: Path) -> None:
+    class CountingProvider(MockLLMProvider):
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, request: LLMCompletionRequest) -> LLMCompletionResponse:
+            self.calls += 1
+            return super().complete(request)
+
+    inner = CountingProvider()
+    provider = CachedLLMProvider(inner, cache_dir=str(tmp_path / "cache"))
+    request = LLMCompletionRequest(prompt="hello", model="mock-model")
+
+    first = provider.complete(request)
+    second = provider.complete(request)
+
+    assert first.content == second.content
+    assert inner.calls == 1
 
 
 def test_openai_provider_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
