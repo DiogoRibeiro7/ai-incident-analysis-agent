@@ -225,7 +225,7 @@ def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
     """Analyze a batch of logs and metrics."""
 
     config = load_llm_config()
-    provider = create_provider(config)
+    provider = create_provider(config, config_path="configs/default.yaml")
     agent = IncidentAnalysisAgent(provider=provider, report_model=config.report_model)
     reports = agent.analyze(logs=request.logs, metrics=request.metrics)
     return AnalyzeResponse(reports=reports)

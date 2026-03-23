@@ -51,6 +51,7 @@ For each run (`<artifact_root>/<run_id>/`):
 - `incidents/incidents.json`
 - `rca/rca_hypotheses.json`
 - `reports/final_reports.json`
+- `run_summary.json`
 
 ## Sample scenario
 
@@ -71,3 +72,20 @@ Pipeline execution logs machine-readable JSON events for:
 Provider retries and failures are also logged by the OpenAI adapter.
 
 See `docs/observability.md` for event names and correlation fields.
+
+## Resilience behavior
+
+The pipeline now supports:
+- bounded provider retries via `llm.max_retries` and `llm.retry_backoff_seconds`
+- deterministic LLM response caching via `resilience.enable_llm_cache`
+- intermediate stage caching via `resilience.enable_intermediate_cache`
+- degraded execution when only one dataset is available
+- failure summaries in `run_summary.json` for incomplete runs
+
+Relevant config keys in `configs/default.yaml`:
+- `resilience.enable_llm_cache`
+- `resilience.llm_cache_dir`
+- `resilience.enable_intermediate_cache`
+- `resilience.intermediate_cache_dir`
+- `resilience.allow_missing_logs`
+- `resilience.allow_missing_metrics`

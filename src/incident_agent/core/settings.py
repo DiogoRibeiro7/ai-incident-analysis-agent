@@ -33,6 +33,17 @@ class ObservabilityConfig(BaseModel):
     json_logs: bool = True
 
 
+class ResilienceConfig(BaseModel):
+    """Retry, caching, and degraded-execution configuration."""
+
+    enable_llm_cache: bool = True
+    llm_cache_dir: str = "artifacts/cache/llm"
+    enable_intermediate_cache: bool = True
+    intermediate_cache_dir: str = "artifacts/cache/pipeline"
+    allow_missing_logs: bool = True
+    allow_missing_metrics: bool = True
+
+
 def load_settings_from_yaml(path: Path) -> dict[str, Any]:
     """Load settings from a YAML file.
 
@@ -55,3 +66,13 @@ def load_observability_config(path: str | Path = "configs/default.yaml") -> Obse
     if not isinstance(section, dict):
         raise ValueError("The 'observability' section must be a mapping.")
     return ObservabilityConfig.model_validate(section)
+
+
+def load_resilience_config(path: str | Path = "configs/default.yaml") -> ResilienceConfig:
+    """Load resilience config from YAML."""
+
+    loaded = load_settings_from_yaml(Path(path))
+    section = loaded.get("resilience", {})
+    if not isinstance(section, dict):
+        raise ValueError("The 'resilience' section must be a mapping.")
+    return ResilienceConfig.model_validate(section)

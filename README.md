@@ -141,6 +141,17 @@ poetry run incident-agent run-pipeline \
 
 See `docs/observability.md` for event names and fields.
 
+## Resilience and caching
+
+The pipeline supports:
+- bounded provider retries
+- disk caching for deterministic LLM calls
+- disk caching for intermediate pipeline stages
+- degraded execution when logs or metrics are partially missing
+- persisted failure summaries in `run_summary.json`
+
+Configuration lives under `resilience` in `configs/default.yaml`.
+
 ## Evaluation harness
 
 Run benchmark scenarios and compare modes:
