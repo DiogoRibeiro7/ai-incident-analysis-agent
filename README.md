@@ -1,61 +1,33 @@
 # AI Incident Analysis Agent
 
-An AI engineering portfolio project that ingests logs and metrics, detects suspicious incidents, retrieves relevant operational context, and produces grounded incident summaries with suggested next actions.
+[![CI](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/codeql.yml/badge.svg?branch=develop)](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/codeql.yml)
+[![Smoke](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/smoke.yml/badge.svg?branch=develop)](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/smoke.yml)
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+[![Poetry](https://img.shields.io/badge/deps-poetry-informational.svg)](https://python-poetry.org/)
 
-## What this project demonstrates
+AI engineering project for incident analysis over logs and metrics. The system ingests operational signals, normalizes timelines, detects anomalies, correlates incidents, runs deterministic RCA, and generates grounded summaries.
 
-- Log and metric ingestion pipelines
-- Timeline normalization and configurable time-bucket alignment
-- Deterministic anomaly detection (service-level and global)
-- Dependency-aware anomaly correlation into incident candidates
-- Root-cause analysis artifacts and heuristic hypothesis scoring
-- LLM provider abstraction (mock + OpenAI) with structured report generation
-- Structured prompt templates for incident reporting from RCA artifacts
-- End-to-end pipeline orchestration with persisted artifacts
-- Evaluation harness with benchmark scenarios and mode comparisons
-- Incident enrichment and retrieval over operational context
-- LLM-based triage and summarisation with structured outputs
-- Guardrails and validation for agent responses
-- FastAPI service for analysis requests
-- CLI for local experimentation
-- Evaluation-oriented design with fixtures and deterministic tests
-- Production-minded repository structure
+## Highlights
 
-## Planned workflow
+- End-to-end analysis pipeline with persisted artifacts
+- Deterministic anomaly detection and dependency-aware incident correlation
+- RCA evidence bundles and ranked root-cause hypotheses
+- LLM abstraction (mock + OpenAI) with structured output schemas
+- Evaluation harness for benchmark scenarios and mode comparison
+- JSON observability logs with run/request IDs, timings, retries, and failures
+- FastAPI + CLI interfaces for local runs and demos
 
-1. Ingest logs and metrics from files, APIs, or observability backends.
-2. Normalise raw events into a common schema.
-3. Group related anomalies into candidate incidents.
-4. Retrieve supporting evidence around the incident window.
-5. Build a grounded prompt with explicit evidence snippets.
-6. Generate a structured incident report.
-7. Validate the output schema and persist the result.
+## Table of contents
 
-## Repository layout
-
-```text
-src/incident_agent/
-  agents/         # Agent orchestration
-  analysis/       # Incident correlation, feature extraction, heuristics
-  api/            # FastAPI application
-  clients/        # External connectors (future)
-  core/           # Settings and constants
-  ingest/         # Parsers and normalisation
-  ingestion/      # Typed local ingestion (files + quality report)
-  llm/            # LLM interfaces and adapters
-  normalization/  # Timeline alignment and bucket feature extraction
-  anomaly_detection/ # Rule-based anomaly detectors
-  correlation/    # Incident grouping and root-cause ranking heuristics
-  rca/            # Evidence ranking and root-cause hypothesis scoring
-  prompts/        # Prompt builders and templates
-  schemas/        # Pydantic models
-  services/       # End-to-end use cases
-  utils/          # Shared helpers
-configs/          # YAML configuration
-data/sample/      # Small local examples
-tests/            # Unit and integration tests
-eval/             # Benchmark scenarios for evaluation
-```
+- [Quick start](#quick-start)
+- [Main commands](#main-commands)
+- [API endpoints](#api-endpoints)
+- [Configuration](#configuration)
+- [Observability](#observability)
+- [Evaluation harness](#evaluation-harness)
+- [Repository layout](#repository-layout)
+- [Project docs](#project-docs)
 
 ## Quick start
 
@@ -65,16 +37,31 @@ eval/             # Benchmark scenarios for evaluation
 poetry install
 ```
 
-### 2. Run the CLI demo
+### 2. Run tests
 
 ```bash
-poetry run incident-agent \
-  analyze \
-  --logs data/sample/logs.jsonl \
-  --metrics data/sample/metrics.jsonl
+poetry run pytest
 ```
 
-### 3. Validate and ingest datasets
+### 3. Run full pipeline on sample data
+
+```bash
+poetry run incident-agent run-pipeline \
+  --logs data/sample/incident/anomaly_logs.csv \
+  --metrics data/sample/incident/anomaly_metrics.csv \
+  --artifact-root artifacts/pipeline \
+  --bucket-size-minutes 5
+```
+
+### 4. Run API locally
+
+```bash
+poetry run uvicorn incident_agent.api.main:app --reload
+```
+
+## Main commands
+
+### Data validation and ingestion
 
 ```bash
 poetry run incident-agent validate-data \
@@ -87,126 +74,65 @@ poetry run incident-agent ingest-data \
   --output-dir artifacts/ingestion/degraded
 ```
 
-Supported file formats:
+Supported formats:
 - logs: `.jsonl`, `.csv`
 - metrics: `.csv`, `.json`, `.jsonl`
 
-### 4. Run the API locally
+### Stage-by-stage analysis
 
 ```bash
-poetry run uvicorn incident_agent.api.main:app --reload
+poetry run incident-agent normalize-timeline --logs <logs> --metrics <metrics>
+poetry run incident-agent detect-anomalies --logs <logs> --metrics <metrics>
+poetry run incident-agent correlate-incidents --logs <logs> --metrics <metrics>
+poetry run incident-agent run-rca --logs <logs> --metrics <metrics>
 ```
 
-### 5. Run tests
+### Operator commands
 
 ```bash
-poetry run pytest
+poetry run incident-agent print-config
+poetry run incident-agent list-incidents --artifact-dir <run_dir>
+poetry run incident-agent show-report --artifact-dir <run_dir> --index 0
+poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.md
 ```
 
-### 6. Normalize timeline windows
+## API endpoints
 
-```bash
-poetry run incident-agent normalize-timeline \
-  --logs data/sample/incident/logs.csv \
-  --metrics data/sample/incident/metrics.json \
-  --bucket-size-minutes 5
-```
+Core:
+- `GET /health`
+- `GET /config`
+- `POST /analyze`
+- `POST /analyze-pipeline`
 
-### 7. Detect anomaly candidates
+Job workflow:
+- `POST /analysis-jobs`
+- `GET /analysis-jobs/{job_id}/reports`
+- `GET /incidents?job_id=<id>`
+- `GET /anomalies?job_id=<id>`
 
-```bash
-poetry run incident-agent detect-anomalies \
-  --logs data/sample/incident/anomaly_logs.csv \
-  --metrics data/sample/incident/anomaly_metrics.csv \
-  --bucket-size-minutes 5
-```
+## Configuration
 
-### 8. Correlate anomalies into incident candidates
+Main config file: `configs/default.yaml`
 
-```bash
-poetry run incident-agent correlate-incidents \
-  --logs data/sample/incident/anomaly_logs.csv \
-  --metrics data/sample/incident/anomaly_metrics.csv \
-  --bucket-size-minutes 5
-```
+Key sections:
+- `llm` for provider/model/retry settings
+- `normalization`, `anomaly_detection`, `correlation`, `rca` for analysis logic
+- `observability` for logging format and level
 
-### 9. Run RCA heuristics
+OpenAI provider setup:
+1. Set `llm.provider: openai`
+2. Export `INCIDENT_AGENT_OPENAI_API_KEY=<your_api_key>`
 
-```bash
-poetry run incident-agent run-rca \
-  --logs data/sample/incident/anomaly_logs.csv \
-  --metrics data/sample/incident/anomaly_metrics.csv \
-  --bucket-size-minutes 5
-```
+## Observability
 
-### 10. Render grounded report prompts from RCA artifacts
-
-Prompt rendering is available in `incident_agent.prompts.renderer` and consumes structured RCA artifacts (`EvidenceBundle`, `IncidentSummaryFeatures`, `RootCauseHypothesis`) without API calls.
-
-Final report schema is defined in:
-- `src/incident_agent/schemas/final_report.py`
-
-### 11. Run the full pipeline
-
-```bash
-poetry run incident-agent run-pipeline \
-  --logs data/sample/incident/anomaly_logs.csv \
-  --metrics data/sample/incident/anomaly_metrics.csv \
-  --artifact-root artifacts/pipeline \
-  --bucket-size-minutes 5
-```
-
-Generated artifacts are saved under a run directory:
-- `normalized/timeline.json`
-- `anomalies/anomalies.json`
-- `incidents/incidents.json`
-- `rca/rca_hypotheses.json`
-- `reports/final_reports.json`
-
-API path for the same workflow:
-- `POST /analyze-pipeline` with file paths and optional artifact root.
-
-Additional API workflow endpoints:
-- `GET /config` (inspect runtime config)
-- `POST /analysis-jobs` (submit local file-based analysis job)
-- `GET /analysis-jobs/{job_id}/reports` (retrieve generated reports)
-- `GET /incidents?job_id=<id>` (list incidents)
-- `GET /anomalies?job_id=<id>` (list anomalies)
-
-Operator-focused CLI commands:
-- `incident-agent print-config`
-- `incident-agent list-incidents --artifact-dir <run_dir>`
-- `incident-agent show-report --artifact-dir <run_dir> --index 0`
-- `incident-agent export-report --artifact-dir <run_dir> --output-path report.md`
-
-### 12. Run evaluation harness
-
-```bash
-poetry run incident-agent run-eval \
-  --benchmark-path eval/benchmarks/scenarios.json \
-  --artifact-root artifacts/eval
-```
-
-Modes compared by default:
-- `heuristic-only`
-- `mock-llm`
-
-Optional:
-- `--include-real-llm` to include `real-llm` mode when credentials/config are available.
-
-## Runtime logging and tracing
-
-The pipeline emits machine-readable JSON logs with:
-- `run_id` and `request_id` correlation fields
-- stage `start/completed/failed` events
-- stage counts and duration in milliseconds
-- provider request attempts, retries, and failures
-
-Default config (`configs/default.yaml`):
-- `observability.log_level: INFO`
-- `observability.json_logs: true`
+Pipeline and provider execution emit machine-readable JSON logs, including:
+- `run_id` and `request_id`
+- stage lifecycle (`start/completed/failed`)
+- event counts and `duration_ms`
+- provider attempts, retries, and failures
 
 Example:
+
 ```bash
 poetry run incident-agent run-pipeline \
   --logs data/sample/incident/anomaly_logs.csv \
@@ -215,56 +141,54 @@ poetry run incident-agent run-pipeline \
 
 See `docs/observability.md` for event names and fields.
 
-## LLM provider configuration
+## Evaluation harness
 
-Provider and model selection is centralized under `llm` in `configs/default.yaml`.
+Run benchmark scenarios and compare modes:
 
-Default local mode:
-- `llm.provider: mock`
+```bash
+poetry run incident-agent run-eval \
+  --benchmark-path eval/benchmarks/scenarios.json \
+  --artifact-root artifacts/eval
+```
 
-To use OpenAI provider:
-1. Set `llm.provider: openai` in config.
-2. Export credential:
-   - `INCIDENT_AGENT_OPENAI_API_KEY=<your_api_key>`
+Default compared modes:
+- `heuristic-only`
+- `mock-llm`
 
-## Example use cases
+Optional:
+- `--include-real-llm` to include `real-llm` mode
 
-- Database latency spikes correlated with application errors
-- API outage triage using logs, saturation metrics, and deployment metadata
-- Authentication failure surges linked to upstream provider instability
-- Flink or stream-processing lag analysis with evidence-based summaries
+## Repository layout
 
-## Initial scope
+```text
+src/incident_agent/
+  agents/            # Agent orchestration
+  api/               # FastAPI application
+  core/              # Runtime settings
+  ingestion/         # Typed file ingestion and quality reports
+  normalization/     # Timeline alignment and bucket features
+  anomaly_detection/ # Deterministic detectors
+  correlation/       # Incident correlation engine
+  rca/               # Evidence ranking + root-cause hypotheses
+  prompts/           # Prompt templates and renderers
+  llm/               # Provider abstraction and adapters
+  eval/              # Evaluation harness implementation
+  schemas/           # Pydantic contracts
+  services/          # End-to-end workflows
+  utils/             # Shared utilities (including observability)
+configs/             # YAML configuration
+data/sample/         # Example datasets
+docs/                # Design and usage docs
+tests/               # Unit and integration tests
+eval/                # Benchmark scenario definitions
+```
 
-The scaffold currently includes:
+## Project docs
 
-- a clean package structure
-- schemas for logs, metrics, incidents, and reports
-- a simple correlation pipeline
-- a mock LLM adapter for deterministic local development
-- a CLI entrypoint
-- a FastAPI endpoint
-- starter tests
-
-## Near-term roadmap
-
-### Stage 1
-
-- complete file and API ingestion connectors
-- implement rule-based incident grouping
-- improve evidence selection around the incident window
-- add prompt templates for triage, root-cause hypotheses, and remediation
-
-### Stage 2
-
-- add vector retrieval over runbooks and incident history
-- support real LLM backends
-- add evaluation fixtures and scoring scripts
-- add tracing, token accounting, and latency reporting
-
-### Stage 3
-
-- integrate with Grafana, CloudWatch, Datadog, or OpenSearch
-- add human-in-the-loop review flows
-- add alerting and incident ticket creation
-- support multi-agent workflows for deep diagnosis
+- `docs/architecture.md`
+- `docs/pipeline.md`
+- `docs/observability.md`
+- `docs/evaluation.md`
+- `docs/llm_provider.md`
+- `docs/prompting.md`
+- `docs/rca.md`
