@@ -32,4 +32,4 @@ run-api:
 	poetry run uvicorn incident_agent.api.main:app --reload
 
 run-demo:
-	poetry run incident-agent analyze --logs data/sample/logs.jsonl --metrics data/sample/metrics.jsonl
+	poetry run incident-agent run-demo

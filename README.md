@@ -177,6 +177,12 @@ poetry run incident-agent run-eval \
   --artifact-root artifacts/eval
 ```
 
+Run the recruiter demo path:
+
+```bash
+make run-demo
+```
+
 ## API Usage
 
 Core endpoints:
@@ -286,6 +292,7 @@ tests/               # Unit and integration tests
 - [prompting.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/prompting.md)
 - [evaluation.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/evaluation.md)
 - [pipeline.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/pipeline.md)
+- [demo_walkthrough.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/demo_walkthrough.md)
 - [observability.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/observability.md)
 - [synthetic_scenarios.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/synthetic_scenarios.md)
 - [sample_incident_report.html](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/sample_incident_report.html)
