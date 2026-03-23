@@ -94,6 +94,7 @@ poetry run incident-agent print-config
 poetry run incident-agent list-incidents --artifact-dir <run_dir>
 poetry run incident-agent show-report --artifact-dir <run_dir> --index 0
 poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.md
+poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.html
 ```
 
 ## API endpoints
@@ -224,4 +225,5 @@ eval/                # Benchmark scenario definitions
 - `docs/llm_provider.md`
 - `docs/prompting.md`
 - `docs/rca.md`
+- `docs/sample_incident_report.html`
 - `docs/synthetic_scenarios.md`

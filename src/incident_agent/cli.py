@@ -13,12 +13,14 @@ from rich.table import Table
 
 from incident_agent.core.settings import load_settings_from_yaml
 from incident_agent.eval.runner import run_evaluation
+from incident_agent.export.serializers import ExportFormat, serialize_report
 from incident_agent.ingestion.logs import ingest_logs
 from incident_agent.ingestion.metrics import ingest_metrics
 from incident_agent.schemas.eval import (
     SyntheticScenarioGeneratorConfig,
     SyntheticScenarioType,
 )
+from incident_agent.schemas.final_report import FinalIncidentReport
 from incident_agent.services.analyze import analyze_from_files
 from incident_agent.services.correlate import correlate_incidents_from_files
 from incident_agent.services.detect import detect_anomalies_from_files
@@ -362,7 +364,7 @@ def show_report(
 @app.command("export-report")
 def export_report(
     output_path: Annotated[
-        str, typer.Option(help="Output file path (.json or .md).")
+        str, typer.Option(help="Output file path (.json, .md, or .html).")
     ],
     incident_id: Annotated[
         str | None, typer.Option(help="Incident ID to export.")
@@ -381,7 +383,7 @@ def export_report(
         bool, typer.Option(help="Use latest run directory under artifact root.")
     ] = True,
 ) -> None:
-    """Export one final report as JSON or Markdown."""
+    """Export one final report as JSON, Markdown, or HTML."""
 
     run_dir = _resolve_run_directory(
         artifact_dir=artifact_dir,
@@ -390,16 +392,28 @@ def export_report(
     )
     reports_path = run_dir / "reports" / "final_reports.json"
     reports = _load_reports(reports_path)
-    report = _select_report(reports, incident_id=incident_id, index=index)
+    report = FinalIncidentReport.model_validate(
+        _select_report(reports, incident_id=incident_id, index=index)
+    )
 
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    if target.suffix.lower() == ".json":
-        target.write_text(json.dumps(report, indent=2), encoding="utf-8")
-    elif target.suffix.lower() == ".md":
-        target.write_text(_report_to_markdown(report), encoding="utf-8")
-    else:
-        raise typer.BadParameter("output-path must end with .json or .md")
+    suffix = target.suffix.lower()
+    format_map = {
+        ".json": "json",
+        ".md": "md",
+        ".html": "html",
+    }
+    output_format = format_map.get(suffix)
+    if output_format is None:
+        raise typer.BadParameter("output-path must end with .json, .md, or .html")
+    target.write_text(
+        serialize_report(
+            report,
+            output_format=cast(ExportFormat, output_format),
+        ),
+        encoding="utf-8",
+    )
     console.print(f"Exported report to {target}")
 
 @app.command("run-eval")
@@ -557,34 +571,6 @@ def _select_report(
     if index < 0 or index >= len(reports):
         raise typer.BadParameter(f"Report index out of range: {index}")
     return reports[index]
-
-
-def _report_to_markdown(report: dict[str, object]) -> str:
-    remediation = _as_string_list(report.get("remediation_suggestions"))
-    facts = _as_string_list(report.get("facts"))
-    inferences = _as_string_list(report.get("inferences"))
-    uncertainties = _as_string_list(report.get("uncertainties"))
-    remediation_lines = "\n".join(f"- {item}" for item in remediation)
-    fact_lines = "\n".join(f"- {item}" for item in facts)
-    inference_lines = "\n".join(f"- {item}" for item in inferences)
-    uncertainty_lines = "\n".join(f"- {item}" for item in uncertainties)
-    return (
-        f"# Incident Report: {report.get('incident_id', 'n/a')}\n\n"
-        f"## Incident Summary\n{report.get('incident_summary', '')}\n\n"
-        f"## Root Cause Explanation\n{report.get('root_cause_explanation', '')}\n\n"
-        f"## Executive Summary\n{report.get('executive_summary', '')}\n\n"
-        f"## Engineering Handoff\n{report.get('engineering_handoff', '')}\n\n"
-        "## Remediation Suggestions\n"
-        f"{remediation_lines or '- none'}\n\n"
-        "## Facts\n"
-        f"{fact_lines or '- none'}\n\n"
-        "## Inferences\n"
-        f"{inference_lines or '- none'}\n\n"
-        "## Uncertainties\n"
-        f"{uncertainty_lines or '- none'}\n"
-    )
-
-
 def _as_string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
