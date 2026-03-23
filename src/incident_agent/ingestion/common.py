@@ -84,18 +84,14 @@ def parse_timestamp_to_utc(
         try:
             parsed = datetime.fromisoformat(normalized)
         except ValueError:
-            report.add_error(
-                f"Row {row_number}: invalid {field_name} '{raw}'. Expected ISO 8601."
-            )
+            report.add_error(f"Row {row_number}: invalid {field_name} '{raw}'. Expected ISO 8601.")
             return None
     else:
         report.add_error(f"Row {row_number}: invalid {field_name} type '{type(value).__name__}'.")
         return None
 
     if parsed.tzinfo is None:
-        report.add_warning(
-            f"Row {row_number}: naive {field_name} assumed to be UTC."
-        )
+        report.add_warning(f"Row {row_number}: naive {field_name} assumed to be UTC.")
         parsed = parsed.replace(tzinfo=UTC)
 
     return parsed.astimezone(UTC)

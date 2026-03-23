@@ -32,7 +32,7 @@ def test_ingest_metrics_json_with_mixed_rows(tmp_path: Path) -> None:
                 "metric_name": "request_latency_ms",
                 "value": "512.7",
                 "unit": "ms",
-                "tags": "{\"route\":\"/v1/orders\"}",
+                "tags": '{"route":"/v1/orders"}',
             },
             {
                 "timestamp": "2026-03-20T12:02:00Z",

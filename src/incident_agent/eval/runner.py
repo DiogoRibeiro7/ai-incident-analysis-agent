@@ -271,9 +271,7 @@ def _score_report(
     latency_seconds: float,
 ) -> EvaluationMetrics:
     expected_root = scenario.expected_root_cause
-    root_correct = (
-        1.0 if expected_root is not None and predicted_root == expected_root else 0.0
-    )
+    root_correct = 1.0 if expected_root is not None and predicted_root == expected_root else 0.0
     expected_impacted = set(scenario.expected_impacted_services)
     predicted_impacted = set(impacted_services)
     if not expected_impacted and not predicted_impacted:
@@ -302,14 +300,10 @@ def _score_report(
         "gateway-service",
         "worker-service",
     ]
-    mentioned_services = {
-        service for service in service_tokens if service in text
-    }
+    mentioned_services = {service for service in service_tokens if service in text}
     hallucinated = {service for service in mentioned_services if service not in known_services}
     hallucination_rate = (
-        len(hallucinated) / max(len(mentioned_services), 1)
-        if mentioned_services
-        else 0.0
+        len(hallucinated) / max(len(mentioned_services), 1) if mentioned_services else 0.0
     )
     factual_grounding = max(0.0, 1.0 - hallucination_rate)
 

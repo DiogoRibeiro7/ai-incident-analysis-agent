@@ -53,10 +53,10 @@ def serialize_report_as_html(report: FinalIncidentReport) -> str:
     title = html.escape(f"Incident Report: {report.incident_id}")
     return (
         "<!DOCTYPE html>\n"
-        "<html lang=\"en\">\n"
+        '<html lang="en">\n'
         "<head>\n"
-        "  <meta charset=\"utf-8\">\n"
-        "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+        '  <meta charset="utf-8">\n'
+        '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"  <title>{title}</title>\n"
         "  <style>\n"
         "    :root {\n"
@@ -73,7 +73,7 @@ def serialize_report_as_html(report: FinalIncidentReport) -> str:
         "      margin: 0;\n"
         "      background: radial-gradient(circle at top left, #fff6df, var(--bg));\n"
         "      color: var(--ink);\n"
-        "      font-family: Georgia, \"Times New Roman\", serif;\n"
+        '      font-family: Georgia, "Times New Roman", serif;\n'
         "      line-height: 1.6;\n"
         "    }\n"
         "    main {\n"
@@ -141,16 +141,16 @@ def serialize_report_as_html(report: FinalIncidentReport) -> str:
         "</head>\n"
         "<body>\n"
         "  <main>\n"
-        "    <section class=\"hero\">\n"
-        "      <div class=\"eyebrow\">AI Incident Analysis</div>\n"
+        '    <section class="hero">\n'
+        '      <div class="eyebrow">AI Incident Analysis</div>\n'
         f"      <h1>{html.escape(report.incident_id)}</h1>\n"
-        f"      <p class=\"lede\">{html.escape(report.executive_summary)}</p>\n"
-        "      <div class=\"grid\">\n"
+        f'      <p class="lede">{html.escape(report.executive_summary)}</p>\n'
+        '      <div class="grid">\n'
         f"{_html_card('Incident Summary', report.incident_summary)}\n"
         f"{_html_card('Root Cause Explanation', report.root_cause_explanation)}\n"
         f"{_html_card('Engineering Handoff', report.engineering_handoff)}\n"
         "      </div>\n"
-        "      <div class=\"section\">\n"
+        '      <div class="section">\n'
         f"        {_html_list_section('Remediation Suggestions', report.remediation_suggestions)}\n"
         f"        {_html_list_section('Facts', report.facts)}\n"
         f"        {_html_list_section('Inferences', report.inferences)}\n"
@@ -171,7 +171,7 @@ def _markdown_list(items: list[str]) -> str:
 
 def _html_card(title: str, content: str) -> str:
     return (
-        "        <article class=\"card\">\n"
+        '        <article class="card">\n'
         f"          <h2>{html.escape(title)}</h2>\n"
         f"          <p>{html.escape(content)}</p>\n"
         "        </article>"
@@ -181,7 +181,4 @@ def _html_card(title: str, content: str) -> str:
 def _html_list_section(title: str, items: list[str]) -> str:
     rendered_items = items or ["none"]
     body = "".join(f"<li>{html.escape(item)}</li>" for item in rendered_items)
-    return (
-        f"        <h2>{html.escape(title)}</h2>\n"
-        f"        <ul class=\"list\">{body}</ul>\n"
-    )
+    return f'        <h2>{html.escape(title)}</h2>\n        <ul class="list">{body}</ul>\n'

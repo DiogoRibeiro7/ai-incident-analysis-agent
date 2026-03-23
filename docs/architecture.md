@@ -14,7 +14,7 @@
 10. Pipeline orchestrator persists normalized data, anomalies, incidents, RCA artifacts, and final reports.
 11. Delivery layer exposes results through CLI and API.
 
-## Extension points
+## Potential extension points
 
 - Real observability connectors under `clients/`
 - Retrieval over runbooks and previous incidents

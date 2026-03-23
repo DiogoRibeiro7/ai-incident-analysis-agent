@@ -37,15 +37,9 @@ configure_logging()
 
 @app.command()
 def analyze(
-    logs: Annotated[
-        str, typer.Option(help="Path to logs file (.jsonl or .csv).")
-    ],
-    metrics: Annotated[
-        str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
-    ],
-    config: Annotated[
-        str, typer.Option(help="Path to YAML config file.")
-    ] = "configs/default.yaml",
+    logs: Annotated[str, typer.Option(help="Path to logs file (.jsonl or .csv).")],
+    metrics: Annotated[str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")],
+    config: Annotated[str, typer.Option(help="Path to YAML config file.")] = "configs/default.yaml",
 ) -> None:
     """Analyze logs and metrics and print structured reports."""
 
@@ -56,12 +50,8 @@ def analyze(
 
 @app.command("validate-data")
 def validate_data(
-    logs: Annotated[
-        str, typer.Option(help="Path to logs file (.jsonl or .csv).")
-    ],
-    metrics: Annotated[
-        str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
-    ],
+    logs: Annotated[str, typer.Option(help="Path to logs file (.jsonl or .csv).")],
+    metrics: Annotated[str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")],
 ) -> None:
     """Validate datasets and print quality metrics."""
 
@@ -93,12 +83,8 @@ def validate_data(
 
 @app.command("ingest-data")
 def ingest_data(
-    logs: Annotated[
-        str, typer.Option(help="Path to logs file (.jsonl or .csv).")
-    ],
-    metrics: Annotated[
-        str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
-    ],
+    logs: Annotated[str, typer.Option(help="Path to logs file (.jsonl or .csv).")],
+    metrics: Annotated[str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")],
     output_dir: Annotated[
         str, typer.Option(help="Directory to write normalized artifacts.")
     ] = "artifacts/ingestion",
@@ -131,15 +117,9 @@ def ingest_data(
 
 @app.command("normalize-timeline")
 def normalize_timeline(
-    logs: Annotated[
-        str, typer.Option(help="Path to logs file (.jsonl or .csv).")
-    ],
-    metrics: Annotated[
-        str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
-    ],
-    config: Annotated[
-        str, typer.Option(help="Path to YAML config file.")
-    ] = "configs/default.yaml",
+    logs: Annotated[str, typer.Option(help="Path to logs file (.jsonl or .csv).")],
+    metrics: Annotated[str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")],
+    config: Annotated[str, typer.Option(help="Path to YAML config file.")] = "configs/default.yaml",
     bucket_size_minutes: Annotated[
         int | None, typer.Option(help="Override bucket size (1, 5, 15).")
     ] = None,
@@ -161,15 +141,9 @@ def normalize_timeline(
 
 @app.command("detect-anomalies")
 def detect_anomalies_command(
-    logs: Annotated[
-        str, typer.Option(help="Path to logs file (.jsonl or .csv).")
-    ],
-    metrics: Annotated[
-        str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
-    ],
-    config: Annotated[
-        str, typer.Option(help="Path to YAML config file.")
-    ] = "configs/default.yaml",
+    logs: Annotated[str, typer.Option(help="Path to logs file (.jsonl or .csv).")],
+    metrics: Annotated[str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")],
+    config: Annotated[str, typer.Option(help="Path to YAML config file.")] = "configs/default.yaml",
     bucket_size_minutes: Annotated[
         int | None, typer.Option(help="Override bucket size (1, 5, 15).")
     ] = None,
@@ -188,15 +162,9 @@ def detect_anomalies_command(
 
 @app.command("correlate-incidents")
 def correlate_incidents_command(
-    logs: Annotated[
-        str, typer.Option(help="Path to logs file (.jsonl or .csv).")
-    ],
-    metrics: Annotated[
-        str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
-    ],
-    config: Annotated[
-        str, typer.Option(help="Path to YAML config file.")
-    ] = "configs/default.yaml",
+    logs: Annotated[str, typer.Option(help="Path to logs file (.jsonl or .csv).")],
+    metrics: Annotated[str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")],
+    config: Annotated[str, typer.Option(help="Path to YAML config file.")] = "configs/default.yaml",
     bucket_size_minutes: Annotated[
         int | None, typer.Option(help="Override bucket size (1, 5, 15).")
     ] = None,
@@ -215,15 +183,9 @@ def correlate_incidents_command(
 
 @app.command("run-rca")
 def run_rca_command(
-    logs: Annotated[
-        str, typer.Option(help="Path to logs file (.jsonl or .csv).")
-    ],
-    metrics: Annotated[
-        str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
-    ],
-    config: Annotated[
-        str, typer.Option(help="Path to YAML config file.")
-    ] = "configs/default.yaml",
+    logs: Annotated[str, typer.Option(help="Path to logs file (.jsonl or .csv).")],
+    metrics: Annotated[str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")],
+    config: Annotated[str, typer.Option(help="Path to YAML config file.")] = "configs/default.yaml",
     bucket_size_minutes: Annotated[
         int | None, typer.Option(help="Override bucket size (1, 5, 15).")
     ] = None,
@@ -246,15 +208,9 @@ def run_rca_command(
 
 @app.command("run-pipeline")
 def run_pipeline_command(
-    logs: Annotated[
-        str, typer.Option(help="Path to logs file (.jsonl or .csv).")
-    ],
-    metrics: Annotated[
-        str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")
-    ],
-    config: Annotated[
-        str, typer.Option(help="Path to YAML config file.")
-    ] = "configs/default.yaml",
+    logs: Annotated[str, typer.Option(help="Path to logs file (.jsonl or .csv).")],
+    metrics: Annotated[str, typer.Option(help="Path to metrics file (.csv, .json, or .jsonl).")],
+    config: Annotated[str, typer.Option(help="Path to YAML config file.")] = "configs/default.yaml",
     artifact_root: Annotated[
         str, typer.Option(help="Root directory for pipeline artifacts.")
     ] = "artifacts/pipeline",
@@ -276,9 +232,7 @@ def run_pipeline_command(
 
 @app.command("print-config")
 def print_config(
-    config: Annotated[
-        str, typer.Option(help="Path to YAML config file.")
-    ] = "configs/default.yaml",
+    config: Annotated[str, typer.Option(help="Path to YAML config file.")] = "configs/default.yaml",
 ) -> None:
     """Print the loaded runtime configuration."""
 
@@ -331,9 +285,7 @@ def list_incidents(
 
 @app.command("show-report")
 def show_report(
-    incident_id: Annotated[
-        str | None, typer.Option(help="Incident ID to display.")
-    ] = None,
+    incident_id: Annotated[str | None, typer.Option(help="Incident ID to display.")] = None,
     index: Annotated[
         int, typer.Option(help="Report index (0-based) when incident_id is not provided.")
     ] = 0,
@@ -363,12 +315,8 @@ def show_report(
 
 @app.command("export-report")
 def export_report(
-    output_path: Annotated[
-        str, typer.Option(help="Output file path (.json, .md, or .html).")
-    ],
-    incident_id: Annotated[
-        str | None, typer.Option(help="Incident ID to export.")
-    ] = None,
+    output_path: Annotated[str, typer.Option(help="Output file path (.json, .md, or .html).")],
+    incident_id: Annotated[str | None, typer.Option(help="Incident ID to export.")] = None,
     index: Annotated[
         int, typer.Option(help="Report index (0-based) when incident_id is not provided.")
     ] = 0,
@@ -416,22 +364,19 @@ def export_report(
     )
     console.print(f"Exported report to {target}")
 
+
 @app.command("run-eval")
 def run_eval_command(
     benchmark_path: Annotated[
         str, typer.Option(help="Path to benchmark scenarios JSON file.")
     ] = "eval/benchmarks/scenarios.json",
-    config: Annotated[
-        str, typer.Option(help="Path to YAML config file.")
-    ] = "configs/default.yaml",
+    config: Annotated[str, typer.Option(help="Path to YAML config file.")] = "configs/default.yaml",
     artifact_root: Annotated[
         str, typer.Option(help="Root directory for evaluation artifacts.")
     ] = "artifacts/eval",
     include_real_llm: Annotated[
         bool,
-        typer.Option(
-            help="Also run real-llm mode (requires openai provider credentials/config)."
-        ),
+        typer.Option(help="Also run real-llm mode (requires openai provider credentials/config)."),
     ] = False,
 ) -> None:
     """Run evaluation harness across benchmark scenarios."""
@@ -447,9 +392,7 @@ def run_eval_command(
 
 @app.command("generate-scenario")
 def generate_scenario_command(
-    scenario_id: Annotated[
-        str, typer.Option(help="Scenario identifier.")
-    ],
+    scenario_id: Annotated[str, typer.Option(help="Scenario identifier.")],
     scenario_type: Annotated[
         str,
         typer.Option(
@@ -470,9 +413,7 @@ def generate_scenario_command(
             ),
         ),
     ],
-    root_cause_service: Annotated[
-        str, typer.Option(help="Planted root-cause service.")
-    ],
+    root_cause_service: Annotated[str, typer.Option(help="Planted root-cause service.")],
     output_dir: Annotated[
         str, typer.Option(help="Directory to write generated logs, metrics, and metadata.")
     ] = "artifacts/generated-scenarios",
@@ -480,15 +421,9 @@ def generate_scenario_command(
         list[str] | None,
         typer.Option(help="Optional impacted services. Repeat the option to add multiple values."),
     ] = None,
-    duration_minutes: Annotated[
-        int, typer.Option(help="Scenario duration in minutes.")
-    ] = 30,
-    interval_minutes: Annotated[
-        int, typer.Option(help="Sampling interval in minutes.")
-    ] = 5,
-    seed: Annotated[
-        int, typer.Option(help="Random seed for reproducible generation.")
-    ] = 7,
+    duration_minutes: Annotated[int, typer.Option(help="Scenario duration in minutes.")] = 30,
+    interval_minutes: Annotated[int, typer.Option(help="Sampling interval in minutes.")] = 5,
+    seed: Annotated[int, typer.Option(help="Random seed for reproducible generation.")] = 7,
 ) -> None:
     """Generate one synthetic incident scenario."""
 
@@ -571,6 +506,8 @@ def _select_report(
     if index < 0 or index >= len(reports):
         raise typer.BadParameter(f"Report index out of range: {index}")
     return reports[index]
+
+
 def _as_string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []

@@ -1,32 +1,37 @@
 # ROADMAP
 
-## Stage 1 — Working local pipeline
-- [x] Package scaffold
-- [x] Core schemas
-- [x] CLI entrypoint
-- [x] FastAPI entrypoint
-- [x] Mock LLM adapter
-- [x] File ingestion parity for local formats (JSONL/CSV logs, CSV/JSON metrics)
-- [x] Timeline normalization with configurable 1/5/15-minute buckets
-- [x] Deterministic anomaly detectors for logs and metrics
-- [x] Dependency-aware incident correlation heuristics
-- [x] RCA abstractions with explicit evidence and hypothesis artifacts
-- [x] CLI operator commands (validate, analyze, list incidents, show/export reports, print config)
-- [ ] Better evidence ranking
+This file tracks the shorter, reality-based roadmap for the repository. It intentionally reflects implemented work and near-term gaps only.
 
-## Stage 2 — AI engineering depth
-- [ ] Retrieval over runbooks and historical incidents
-- [x] Prompt templates for triage and remediation
-- [x] Real LLM provider adapter with mock fallback
-- [x] End-to-end pipeline orchestration with persisted artifacts
-- [ ] Output validation and retry policy
-- [ ] Trace and cost observability
-- [x] Evaluation dataset and scorer
+## Completed
 
-## Stage 3 — Production integration
-- [ ] CloudWatch connector
-- [ ] Grafana / Prometheus connector
-- [ ] Datadog connector
-- [ ] Ticket creation integration
-- [ ] Human review workflow
-- [ ] Deployment manifests
+- package scaffold and typed schemas
+- CLI and FastAPI entrypoints
+- local file ingestion with validation and quality reporting
+- timeline normalization and configurable bucket sizes
+- deterministic anomaly detection across multiple signal types
+- dependency-aware incident correlation
+- heuristic RCA artifacts and evidence ranking
+- prompt rendering from structured RCA inputs
+- mock and OpenAI-backed provider support
+- end-to-end pipeline orchestration with persisted artifacts
+- operator-focused CLI commands
+- evaluation harness and synthetic benchmark generation
+- structured observability and fault-tolerant pipeline execution
+- report export in JSON, Markdown, and HTML
+
+## Next likely improvements
+
+- retrieval over runbooks and historical incidents
+- stronger evidence ranking and output validation policies
+- token and cost accounting
+- live observability platform connectors
+- deployment packaging and production manifests
+
+## Not implemented yet
+
+- CloudWatch connector
+- Grafana / Prometheus connector
+- Datadog connector
+- incident ticket creation integration
+- human review workflow
+- deployment manifests

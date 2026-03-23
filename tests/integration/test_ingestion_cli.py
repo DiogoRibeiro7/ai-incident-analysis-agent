@@ -313,6 +313,7 @@ def _prepare_pipeline_artifacts(tmp_path: Path) -> Path:
     assert runs
     return runs[-1]
 
+
 def test_run_eval_command_outputs_summary(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(
