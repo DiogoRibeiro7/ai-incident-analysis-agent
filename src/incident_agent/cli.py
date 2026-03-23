@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
+import click
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -14,12 +15,17 @@ from incident_agent.core.settings import load_settings_from_yaml
 from incident_agent.eval.runner import run_evaluation
 from incident_agent.ingestion.logs import ingest_logs
 from incident_agent.ingestion.metrics import ingest_metrics
+from incident_agent.schemas.eval import (
+    SyntheticScenarioGeneratorConfig,
+    SyntheticScenarioType,
+)
 from incident_agent.services.analyze import analyze_from_files
 from incident_agent.services.correlate import correlate_incidents_from_files
 from incident_agent.services.detect import detect_anomalies_from_files
 from incident_agent.services.normalize import normalize_from_files
 from incident_agent.services.pipeline import run_pipeline_from_files
 from incident_agent.services.rca import run_rca_from_files
+from incident_agent.synthetic.generator import generate_benchmark_scenario
 from incident_agent.utils.observability import configure_logging
 
 app = typer.Typer(help="CLI for the AI incident analysis agent.")
@@ -423,6 +429,70 @@ def run_eval_command(
         include_real_llm=include_real_llm,
     )
     console.print_json(json.dumps(result.model_dump(mode="json")))
+
+
+@app.command("generate-scenario")
+def generate_scenario_command(
+    scenario_id: Annotated[
+        str, typer.Option(help="Scenario identifier.")
+    ],
+    scenario_type: Annotated[
+        str,
+        typer.Option(
+            help=(
+                "Scenario type: latency_degradation, error_burst, dependency_cascade, "
+                "traffic_drop, resource_exhaustion, partial_outage."
+            ),
+            click_type=click.Choice(
+                [
+                    "latency_degradation",
+                    "error_burst",
+                    "dependency_cascade",
+                    "traffic_drop",
+                    "resource_exhaustion",
+                    "partial_outage",
+                ],
+                case_sensitive=True,
+            ),
+        ),
+    ],
+    root_cause_service: Annotated[
+        str, typer.Option(help="Planted root-cause service.")
+    ],
+    output_dir: Annotated[
+        str, typer.Option(help="Directory to write generated logs, metrics, and metadata.")
+    ] = "artifacts/generated-scenarios",
+    impacted_services: Annotated[
+        list[str] | None,
+        typer.Option(help="Optional impacted services. Repeat the option to add multiple values."),
+    ] = None,
+    duration_minutes: Annotated[
+        int, typer.Option(help="Scenario duration in minutes.")
+    ] = 30,
+    interval_minutes: Annotated[
+        int, typer.Option(help="Sampling interval in minutes.")
+    ] = 5,
+    seed: Annotated[
+        int, typer.Option(help="Random seed for reproducible generation.")
+    ] = 7,
+) -> None:
+    """Generate one synthetic incident scenario."""
+
+    config = SyntheticScenarioGeneratorConfig(
+        scenario_type=cast(SyntheticScenarioType, scenario_type),
+        root_cause_service=root_cause_service,
+        impacted_services=impacted_services or [],
+        duration_minutes=duration_minutes,
+        interval_minutes=interval_minutes,
+        seed=seed,
+    )
+    scenario = generate_benchmark_scenario(
+        scenario_id=scenario_id,
+        description=f"Synthetic {scenario_type} scenario for {root_cause_service}.",
+        config=config,
+        output_root=output_dir,
+    )
+    console.print_json(json.dumps(scenario.model_dump(mode="json")))
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:

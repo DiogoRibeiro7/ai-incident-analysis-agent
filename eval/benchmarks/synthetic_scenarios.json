@@ -1,0 +1,38 @@
+[
+  {
+    "scenario_id": "synthetic_latency_degradation",
+    "description": "Generated latency degradation scenario for checkout-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "generator": {
+      "scenario_type": "latency_degradation",
+      "root_cause_service": "checkout-service",
+      "impacted_services": ["checkout-service"],
+      "seed": 11
+    }
+  },
+  {
+    "scenario_id": "synthetic_dependency_cascade",
+    "description": "Generated dependency cascade from gateway-service into checkout-service and api-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "generator": {
+      "scenario_type": "dependency_cascade",
+      "root_cause_service": "gateway-service",
+      "impacted_services": ["checkout-service", "api-service"],
+      "seed": 19
+    }
+  },
+  {
+    "scenario_id": "synthetic_partial_outage",
+    "description": "Generated multi-service partial outage benchmark.",
+    "logs_path": "",
+    "metrics_path": "",
+    "generator": {
+      "scenario_type": "partial_outage",
+      "root_cause_service": "api-service",
+      "impacted_services": ["checkout-service", "gateway-service"],
+      "seed": 23
+    }
+  }
+]
