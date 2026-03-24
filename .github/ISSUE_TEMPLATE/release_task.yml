@@ -1,0 +1,63 @@
+name: Release task
+description: Track a release cut or release-readiness activity
+title: "[Release]: "
+labels:
+  - release
+  - task
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Target version
+      description: Semantic version or release identifier.
+      placeholder: e.g. v0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: release_type
+    attributes:
+      label: Release type
+      options:
+        - major
+        - minor
+        - patch
+        - pre-release
+        - internal
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What should this release achieve?
+      placeholder: Summarize the release scope and intended audience.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Included changes
+      description: Link key PRs, issues, or feature areas.
+      placeholder: |
+        - feature or fix 1
+        - feature or fix 2
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: Required checks before publication.
+      placeholder: |
+        - [ ] CI green
+        - [ ] Demo path verified
+        - [ ] Changelog reviewed
+        - [ ] Version metadata updated
+    validations:
+      required: true
+  - type: textarea
+    id: rollout
+    attributes:
+      label: Rollout and follow-up
+      description: Post-release actions, announcements, or rollback notes.
+      placeholder: Describe publish steps and immediate follow-up tasks.
