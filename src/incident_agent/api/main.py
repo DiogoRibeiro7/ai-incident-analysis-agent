@@ -14,6 +14,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from incident_agent import __version__
 from incident_agent.agents.incident_agent import IncidentAnalysisAgent
 from incident_agent.api.store import AnalysisJobRecord, AnalysisJobStore
 from incident_agent.core.settings import load_observability_config, load_settings_from_yaml
@@ -34,7 +35,7 @@ from incident_agent.utils.observability import (
 
 app = FastAPI(
     title="AI Incident Analysis Agent",
-    version="0.1.0",
+    version=__version__,
     description="Local incident analysis service with file-based workflow execution.",
 )
 app.state.job_store = AnalysisJobStore()

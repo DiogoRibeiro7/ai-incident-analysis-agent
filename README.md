@@ -5,6 +5,7 @@
 [![Smoke](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/smoke.yml/badge.svg?branch=develop)](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/smoke.yml)
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
 [![Poetry](https://img.shields.io/badge/deps-poetry-informational.svg)](https://python-poetry.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 Incident analysis system for logs and metrics, built as an AI engineering portfolio project. It ingests operational data, normalizes it into aligned time windows, detects anomalies, correlates incident candidates, runs deterministic RCA, and generates structured reports through a provider abstraction.
 
@@ -283,7 +284,9 @@ tests/               # Unit and integration tests
 
 ## Documentation Index
 
+- [CHANGELOG.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/CHANGELOG.md)
 - [CONTRIBUTING.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/CONTRIBUTING.md)
+- [LICENSE](C:/Users/diogo/work_code/ai-incident-analysis-agent/LICENSE)
 - [architecture.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/architecture.md)
 - [ingestion.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/ingestion.md)
 - [anomaly_detection.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/anomaly_detection.md)
@@ -292,6 +295,7 @@ tests/               # Unit and integration tests
 - [prompting.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/prompting.md)
 - [evaluation.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/evaluation.md)
 - [pipeline.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/pipeline.md)
+- [release_checklist.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/release_checklist.md)
 - [demo_walkthrough.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/demo_walkthrough.md)
 - [observability.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/observability.md)
 - [synthetic_scenarios.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/synthetic_scenarios.md)

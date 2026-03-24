@@ -502,6 +502,8 @@ def _read_json(path: Path) -> dict[str, object]:
 
 
 def _load_reports(path: Path) -> list[dict[str, object]]:
+    if not path.exists():
+        raise typer.BadParameter(f"Report file not found: {path}")
     loaded = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(loaded, list):
         raise typer.BadParameter(f"Report file must contain a JSON list: {path}")

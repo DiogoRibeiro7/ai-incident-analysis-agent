@@ -291,6 +291,23 @@ def test_export_report_command_json_markdown_and_html(tmp_path: Path) -> None:
     assert "<!DOCTYPE html>" in output_html.read_text(encoding="utf-8")
 
 
+def test_show_report_fails_cleanly_when_report_file_is_missing(tmp_path: Path) -> None:
+    run_dir = tmp_path / "missing-report-run"
+    (run_dir / "reports").mkdir(parents=True, exist_ok=True)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "show-report",
+            "--artifact-dir",
+            str(run_dir),
+        ],
+    )
+
+    assert result.exit_code != 0
+
+
 def _prepare_pipeline_artifacts(tmp_path: Path) -> Path:
     runner = CliRunner()
     artifact_root = tmp_path / "pipeline-artifacts"
