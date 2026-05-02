@@ -60,6 +60,7 @@ For each run (`<artifact_root>/<run_id>/`):
 - `anomalies/anomalies.json`
 - `incidents/incidents.json`
 - `rca/rca_hypotheses.json`
+- `grounding/grounding_summary.json`
 - `reports/final_reports.json`
 - `run_summary.json`
 
@@ -120,3 +121,6 @@ Relevant config keys in `configs/default.yaml`:
 - `knowledge.source_paths`
 - `knowledge.top_k`
 - `knowledge.max_snippet_chars`
+- `grounding.enabled`
+- `grounding.policy` (`warn` or `fail`)
+- `grounding.minimum_support_overlap`

@@ -15,7 +15,9 @@ from incident_agent.anomaly_detection.engine import (
     load_anomaly_detection_config,
 )
 from incident_agent.core.settings import (
+    GroundingConfig,
     KnowledgeConfig,
+    load_grounding_config,
     load_knowledge_config,
     load_observability_config,
     load_resilience_config,
@@ -25,6 +27,7 @@ from incident_agent.correlation.engine import (
     load_correlation_config,
     load_dependency_graph_for_correlation,
 )
+from incident_agent.grounding.validate import validate_report_grounding
 from incident_agent.ingest.files import load_logs, load_metrics
 from incident_agent.knowledge.retrieval import retrieve_context
 from incident_agent.llm.base import BaseLLMProvider, LLMProviderError
@@ -43,6 +46,7 @@ from incident_agent.rca.engine import (
 from incident_agent.schemas.anomaly import AnomalyDetectionResult
 from incident_agent.schemas.events import LogEvent, MetricPoint
 from incident_agent.schemas.final_report import FinalIncidentReport
+from incident_agent.schemas.grounding import GroundingSummary
 from incident_agent.schemas.incident import IncidentCorrelationResult
 from incident_agent.schemas.llm import LLMCompletionRequest, LLMUsage
 from incident_agent.schemas.pipeline import (
@@ -92,6 +96,7 @@ def run_pipeline_from_files(
     completed_stages: list[str] = []
     used_intermediate_cache = False
     llm_usage_summary = LLMUsageSummary()
+    grounding_summaries: list[GroundingSummary] = []
 
     with bind_context(run_id=run_id):
         log_event(
@@ -152,6 +157,7 @@ def run_pipeline_from_files(
                     used_intermediate_cache=used_intermediate_cache,
                     used_llm_cache=False,
                     llm_usage=LLMUsageSummary(),
+                    grounding_summaries=[],
                 )
                 alignment_payload, anomalies_payload, incidents_payload, rca_payload = (
                     _artifact_payloads(
@@ -167,6 +173,7 @@ def run_pipeline_from_files(
                     anomalies=anomalies_payload,
                     incidents=incidents_payload,
                     rca=rca_payload,
+                    grounding=[],
                     reports=[report.model_dump(mode="json") for report in result.final_reports],
                     run_summary=_run_summary_payload(result),
                 )
@@ -302,6 +309,7 @@ def run_pipeline_from_files(
                 try:
                     llm_config = load_llm_config(config_path)
                     knowledge_config = load_knowledge_config(config_path)
+                    grounding_config = load_grounding_config(config_path)
                     if retrieval_enabled is not None:
                         knowledge_config = knowledge_config.model_copy(
                             update={"enabled": retrieval_enabled}
@@ -311,12 +319,30 @@ def run_pipeline_from_files(
                             update={"source_paths": knowledge_source_paths}
                         )
                     provider = create_provider(llm_config, config_path=config_path)
-                    reports, llm_usage_summary = _generate_final_reports(
+                    reports, llm_usage_summary, grounding_summaries = _generate_final_reports(
                         rca_result,
                         provider=provider,
                         completion_model=llm_config.completion_model,
                         knowledge_config=knowledge_config,
+                        grounding_config=grounding_config,
                     )
+                    failed_grounding = [
+                        summary for summary in grounding_summaries if not summary.passed
+                    ]
+                    if failed_grounding:
+                        failure_summaries.append(
+                            PipelineFailureSummary(
+                                stage="grounding_validation",
+                                message=(
+                                    "Grounding validation failed for "
+                                    f"{len(failed_grounding)} report(s)."
+                                ),
+                                fatal=False,
+                            )
+                        )
+                        warnings.append(
+                            "One or more reports failed strict grounding validation."
+                        )
                 except Exception as error:
                     failure_summaries.append(
                         PipelineFailureSummary(
@@ -330,6 +356,7 @@ def run_pipeline_from_files(
                     )
                     reports = []
                     llm_usage_summary = LLMUsageSummary()
+                    grounding_summaries = []
                 log_event(
                     logger,
                     level=logging.INFO,
@@ -356,6 +383,7 @@ def run_pipeline_from_files(
                     used_intermediate_cache=used_intermediate_cache,
                     used_llm_cache=used_llm_cache,
                     llm_usage=llm_usage_summary,
+                    grounding_summaries=grounding_summaries,
                 )
                 alignment_payload, anomalies_payload, incidents_payload, rca_payload = (
                     _artifact_payloads(
@@ -371,6 +399,7 @@ def run_pipeline_from_files(
                     anomalies=anomalies_payload,
                     incidents=incidents_payload,
                     rca=rca_payload,
+                    grounding=[item.model_dump(mode="json") for item in grounding_summaries],
                     reports=[report.model_dump(mode="json") for report in reports],
                     run_summary=_run_summary_payload(result),
                 )
@@ -407,9 +436,11 @@ def _generate_final_reports(
     provider: BaseLLMProvider,
     completion_model: str,
     knowledge_config: KnowledgeConfig,
-) -> tuple[list[FinalIncidentReport], LLMUsageSummary]:
+    grounding_config: GroundingConfig,
+) -> tuple[list[FinalIncidentReport], LLMUsageSummary, list[GroundingSummary]]:
     reports: list[FinalIncidentReport] = []
     usages: list[tuple[str, LLMUsage]] = []
+    grounding_summaries: list[GroundingSummary] = []
     bundle_by_id = {bundle.incident_id: bundle for bundle in rca_result.bundles}
     summary_by_id = {summary.incident_id: summary for summary in rca_result.summaries}
 
@@ -493,22 +524,32 @@ def _generate_final_reports(
             remediation_suggestions = [remediation_text]
         citations = [snippet.citation_id for snippet in retrieved_context]
 
-        reports.append(
-            FinalIncidentReport(
-                incident_id=hypothesis.incident_id,
-                incident_summary=incident_summary,
-                root_cause_explanation=root_cause_explanation,
-                executive_summary=executive_summary,
-                engineering_handoff=engineering_handoff,
-                remediation_suggestions=remediation_suggestions,
-                facts=facts,
-                inferences=inferences,
-                uncertainties=uncertainties,
-                citations=citations,
-            )
+        report = FinalIncidentReport(
+            incident_id=hypothesis.incident_id,
+            incident_summary=incident_summary,
+            root_cause_explanation=root_cause_explanation,
+            executive_summary=executive_summary,
+            engineering_handoff=engineering_handoff,
+            remediation_suggestions=remediation_suggestions,
+            facts=facts,
+            inferences=inferences,
+            uncertainties=uncertainties,
+            citations=citations,
         )
+        if grounding_config.enabled:
+            grounding_summary = validate_report_grounding(
+                report=report,
+                evidence_bundle=bundle,
+                root_cause_hypothesis=hypothesis,
+                retrieved_context=retrieved_context,
+                config=grounding_config,
+            )
+            grounding_summaries.append(grounding_summary)
+            if grounding_config.policy == "fail" and not grounding_summary.passed:
+                continue
+        reports.append(report)
         usages.append((completion_model, usage))
-    return reports, _aggregate_llm_usage(usages)
+    return reports, _aggregate_llm_usage(usages), grounding_summaries
 
 
 def _complete_or_fallback(
@@ -671,6 +712,7 @@ def _build_pipeline_result(
     used_intermediate_cache: bool,
     used_llm_cache: bool,
     llm_usage: LLMUsageSummary,
+    grounding_summaries: list[GroundingSummary],
 ) -> PipelineRunResult:
     return PipelineRunResult(
         run_id=run_id,
@@ -687,6 +729,7 @@ def _build_pipeline_result(
         used_intermediate_cache=used_intermediate_cache,
         used_llm_cache=used_llm_cache,
         llm_usage=llm_usage,
+        grounding_summaries=grounding_summaries,
         final_reports=reports,
     )
 
@@ -717,6 +760,7 @@ def _persist_artifacts(
     anomalies: dict[str, object],
     incidents: dict[str, object],
     rca: dict[str, object],
+    grounding: list[dict[str, object]],
     reports: list[dict[str, object]],
     run_summary: dict[str, object],
 ) -> None:
@@ -724,13 +768,25 @@ def _persist_artifacts(
     anomalies_dir = run_dir / "anomalies"
     incidents_dir = run_dir / "incidents"
     rca_dir = run_dir / "rca"
+    grounding_dir = run_dir / "grounding"
     reports_dir = run_dir / "reports"
-    for directory in [normalized_dir, anomalies_dir, incidents_dir, rca_dir, reports_dir]:
+    for directory in [
+        normalized_dir,
+        anomalies_dir,
+        incidents_dir,
+        rca_dir,
+        grounding_dir,
+        reports_dir,
+    ]:
         directory.mkdir(parents=True, exist_ok=True)
 
     (normalized_dir / "timeline.json").write_text(json.dumps(alignment, indent=2), encoding="utf-8")
     (anomalies_dir / "anomalies.json").write_text(json.dumps(anomalies, indent=2), encoding="utf-8")
     (incidents_dir / "incidents.json").write_text(json.dumps(incidents, indent=2), encoding="utf-8")
     (rca_dir / "rca_hypotheses.json").write_text(json.dumps(rca, indent=2), encoding="utf-8")
+    (grounding_dir / "grounding_summary.json").write_text(
+        json.dumps(grounding, indent=2),
+        encoding="utf-8",
+    )
     (reports_dir / "final_reports.json").write_text(json.dumps(reports, indent=2), encoding="utf-8")
     (run_dir / "run_summary.json").write_text(json.dumps(run_summary, indent=2), encoding="utf-8")

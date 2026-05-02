@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from incident_agent.schemas.final_report import FinalIncidentReport
+from incident_agent.schemas.grounding import GroundingSummary
 
 
 class LLMUsageSummary(BaseModel):
@@ -44,4 +45,5 @@ class PipelineRunResult(BaseModel):
     used_intermediate_cache: bool = False
     used_llm_cache: bool = False
     llm_usage: LLMUsageSummary = Field(default_factory=LLMUsageSummary)
+    grounding_summaries: list[GroundingSummary] = Field(default_factory=list)
     final_reports: list[FinalIncidentReport] = Field(default_factory=list)

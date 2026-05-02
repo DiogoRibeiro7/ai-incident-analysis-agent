@@ -18,6 +18,10 @@ knowledge:
     - data/knowledge/incidents
   top_k: 3
   max_snippet_chars: 360
+grounding:
+  enabled: true
+  policy: warn
+  minimum_support_overlap: 0.34
 llm:
   provider: mock
   report_model: gpt-4.1-mini

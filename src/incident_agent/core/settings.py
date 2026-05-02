@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -53,6 +53,14 @@ class KnowledgeConfig(BaseModel):
     max_snippet_chars: int = 360
 
 
+class GroundingConfig(BaseModel):
+    """Grounding validation behavior configuration."""
+
+    enabled: bool = True
+    policy: Literal["warn", "fail"] = "warn"
+    minimum_support_overlap: float = 0.34
+
+
 def load_settings_from_yaml(path: Path) -> dict[str, Any]:
     """Load settings from a YAML file.
 
@@ -95,3 +103,13 @@ def load_knowledge_config(path: str | Path = "configs/default.yaml") -> Knowledg
     if not isinstance(section, dict):
         raise ValueError("The 'knowledge' section must be a mapping.")
     return KnowledgeConfig.model_validate(section)
+
+
+def load_grounding_config(path: str | Path = "configs/default.yaml") -> GroundingConfig:
+    """Load grounding validation config from YAML."""
+
+    loaded = load_settings_from_yaml(Path(path))
+    section = loaded.get("grounding", {})
+    if not isinstance(section, dict):
+        raise ValueError("The 'grounding' section must be a mapping.")
+    return GroundingConfig.model_validate(section)

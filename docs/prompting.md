@@ -60,3 +60,18 @@ Canonical final report schema:
 - `FinalIncidentReport`
 
 This schema is used to validate report structure independently from provider behavior.
+
+## Grounding validation
+
+Pipeline report generation now validates report `facts` and `inferences` against:
+- RCA ranked evidence
+- RCA root-cause hypothesis context
+- optional retrieved snippets
+
+Configured in `configs/default.yaml` under `grounding`:
+- `enabled`
+- `policy`: `warn` or `fail`
+- `minimum_support_overlap`
+
+Validation output is persisted in:
+- `grounding/grounding_summary.json`

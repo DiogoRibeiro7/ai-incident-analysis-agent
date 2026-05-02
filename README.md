@@ -127,6 +127,7 @@ Each run writes a timestamped artifact directory containing:
 - `anomalies/anomalies.json`
 - `incidents/incidents.json`
 - `rca/rca_hypotheses.json`
+- `grounding/grounding_summary.json`
 - `reports/final_reports.json`
 - `run_summary.json`
 

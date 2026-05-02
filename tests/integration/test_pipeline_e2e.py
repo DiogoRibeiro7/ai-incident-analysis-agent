@@ -155,6 +155,70 @@ def test_run_pipeline_from_files_includes_citations_when_retrieval_enabled(
     assert any(report.citations for report in result.final_reports)
 
 
+def test_run_pipeline_warn_policy_keeps_reports_on_grounding_failure(tmp_path: Path) -> None:
+    config_path = _write_config(
+        tmp_path,
+        overrides={
+            "grounding": {
+                "enabled": True,
+                "policy": "warn",
+                "minimum_support_overlap": 1.1,
+            },
+            "resilience": {
+                "enable_intermediate_cache": False,
+                "llm_cache_dir": str(tmp_path / "llm-cache"),
+                "intermediate_cache_dir": str(tmp_path / "pipeline-cache"),
+                "allow_missing_metrics": True,
+                "allow_missing_logs": True,
+            },
+        },
+    )
+
+    result = run_pipeline_from_files(
+        log_path="data/sample/incident/anomaly_logs.csv",
+        metric_path="data/sample/incident/anomaly_metrics.csv",
+        config_path=str(config_path),
+        artifact_root=str(tmp_path / "runs"),
+        bucket_size_minutes=5,
+    )
+
+    assert result.final_report_count >= 1
+    assert result.grounding_summaries
+    assert any(item.unsupported_claims >= 1 for item in result.grounding_summaries)
+    assert (Path(result.artifact_dir) / "grounding" / "grounding_summary.json").exists()
+
+
+def test_run_pipeline_fail_policy_drops_failed_reports(tmp_path: Path) -> None:
+    config_path = _write_config(
+        tmp_path,
+        overrides={
+            "grounding": {
+                "enabled": True,
+                "policy": "fail",
+                "minimum_support_overlap": 1.1,
+            },
+            "resilience": {
+                "enable_intermediate_cache": False,
+                "llm_cache_dir": str(tmp_path / "llm-cache"),
+                "intermediate_cache_dir": str(tmp_path / "pipeline-cache"),
+                "allow_missing_metrics": True,
+                "allow_missing_logs": True,
+            },
+        },
+    )
+
+    result = run_pipeline_from_files(
+        log_path="data/sample/incident/anomaly_logs.csv",
+        metric_path="data/sample/incident/anomaly_metrics.csv",
+        config_path=str(config_path),
+        artifact_root=str(tmp_path / "runs"),
+        bucket_size_minutes=5,
+    )
+
+    assert result.final_report_count == 0
+    assert any(item.stage == "grounding_validation" for item in result.failure_summaries)
+
+
 def _write_config(tmp_path: Path, overrides: dict[str, object]) -> Path:
     base = yaml.safe_load(Path("configs/default.yaml").read_text(encoding="utf-8"))
     assert isinstance(base, dict)
