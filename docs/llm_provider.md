@@ -23,6 +23,7 @@ Decouple report generation from a single mock implementation and support interch
 Defined in `src/incident_agent/schemas/llm.py`:
 - `LLMCompletionRequest` / `LLMCompletionResponse`
 - `LLMStructuredReportRequest` / `LLMStructuredReportResponse`
+- `LLMUsage` (prompt tokens, completion tokens, total tokens, latency, estimated cost)
 
 ## Error handling behavior
 
@@ -42,6 +43,7 @@ Config section in `configs/default.yaml`:
 - `llm.timeout_seconds`
 - `llm.max_retries`
 - `llm.retry_backoff_seconds`
+- `llm.model_pricing_usd_per_1k_tokens`
 
 Environment variable for OpenAI:
 - `INCIDENT_AGENT_OPENAI_API_KEY`

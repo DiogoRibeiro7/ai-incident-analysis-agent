@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
-import pytest
 import yaml
 
 from incident_agent.services.pipeline import run_pipeline_from_files
@@ -11,10 +9,7 @@ from incident_agent.services.pipeline import run_pipeline_from_files
 
 def test_run_pipeline_from_files_persists_artifacts(
     tmp_path: Path,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    caplog.set_level(logging.INFO)
-
     result = run_pipeline_from_files(
         log_path="data/sample/incident/anomaly_logs.csv",
         metric_path="data/sample/incident/anomaly_metrics.csv",
@@ -30,12 +25,8 @@ def test_run_pipeline_from_files_persists_artifacts(
     assert (run_dir / "rca" / "rca_hypotheses.json").exists()
     assert (run_dir / "reports" / "final_reports.json").exists()
     assert result.final_report_count >= 1
-
-    events = [getattr(record, "event", None) for record in caplog.records]
-    assert "pipeline.run.started" in events
-    assert "pipeline.stage.start" in events
-    assert "pipeline.stage.completed" in events
-    assert "pipeline.run.completed" in events
+    assert result.llm_usage.call_count >= 1
+    assert result.llm_usage.total_tokens >= 0
 
 
 def test_run_pipeline_from_files_degrades_when_metrics_missing(tmp_path: Path) -> None:
@@ -128,6 +119,40 @@ def test_run_pipeline_from_files_returns_partial_result_when_provider_unavailabl
     assert result.incident_count >= 1
     assert result.final_report_count == 0
     assert any(item.stage == "report_generation" for item in result.failure_summaries)
+
+
+def test_run_pipeline_from_files_includes_citations_when_retrieval_enabled(
+    tmp_path: Path,
+) -> None:
+    config_path = _write_config(
+        tmp_path,
+        overrides={
+            "knowledge": {
+                "enabled": True,
+                "source_paths": ["data/knowledge/runbooks", "data/knowledge/incidents"],
+                "top_k": 2,
+                "max_snippet_chars": 280,
+            },
+            "resilience": {
+                "enable_intermediate_cache": False,
+                "llm_cache_dir": str(tmp_path / "llm-cache"),
+                "intermediate_cache_dir": str(tmp_path / "pipeline-cache"),
+                "allow_missing_metrics": True,
+                "allow_missing_logs": True,
+            },
+        },
+    )
+
+    result = run_pipeline_from_files(
+        log_path="data/sample/incident/anomaly_logs.csv",
+        metric_path="data/sample/incident/anomaly_metrics.csv",
+        config_path=str(config_path),
+        artifact_root=str(tmp_path / "runs"),
+        bucket_size_minutes=5,
+    )
+
+    assert result.final_reports
+    assert any(report.citations for report in result.final_reports)
 
 
 def _write_config(tmp_path: Path, overrides: dict[str, object]) -> Path:

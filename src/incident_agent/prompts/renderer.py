@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from incident_agent.knowledge.retrieval import RetrievedSnippet
 from incident_agent.prompts.templates import (
     ENGINEERING_HANDOFF_TEMPLATE,
     EXECUTIVE_SUMMARY_TEMPLATE,
@@ -32,6 +33,7 @@ class PromptRenderContext(BaseModel):
     evidence_bundle: EvidenceBundle
     summary_features: IncidentSummaryFeatures
     root_cause_hypothesis: RootCauseHypothesis
+    retrieved_context: list[RetrievedSnippet] = Field(default_factory=list)
 
 
 def render_prompt(template: TemplateName, context: PromptRenderContext) -> str:
@@ -75,5 +77,8 @@ def _build_payload(context: PromptRenderContext) -> str:
         "evidence_bundle": context.evidence_bundle.model_dump(mode="json"),
         "summary_features": context.summary_features.model_dump(mode="json"),
         "root_cause_hypothesis": context.root_cause_hypothesis.model_dump(mode="json"),
+        "retrieved_context": [
+            snippet.model_dump(mode="json") for snippet in context.retrieved_context
+        ],
     }
     return json.dumps(payload, indent=2)

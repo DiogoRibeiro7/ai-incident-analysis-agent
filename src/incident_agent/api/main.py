@@ -88,6 +88,8 @@ class PipelineAnalyzeRequest(BaseModel):
     config_path: str = "configs/default.yaml"
     artifact_root: str = "artifacts/pipeline"
     bucket_size_minutes: int | None = None
+    retrieval_enabled: bool | None = None
+    knowledge_source_paths: list[str] | None = None
 
 
 class ConfigInspectionResponse(BaseModel):
@@ -105,6 +107,8 @@ class AnalysisJobSubmitRequest(BaseModel):
     config_path: str = "configs/default.yaml"
     artifact_root: str = "artifacts/pipeline"
     bucket_size_minutes: int | None = None
+    retrieval_enabled: bool | None = None
+    knowledge_source_paths: list[str] | None = None
 
 
 class AnalysisJobStatusResponse(BaseModel):
@@ -248,6 +252,8 @@ def analyze_pipeline(request: PipelineAnalyzeRequest) -> PipelineRunResult:
             config_path=request.config_path,
             artifact_root=request.artifact_root,
             bucket_size_minutes=request.bucket_size_minutes,
+            retrieval_enabled=request.retrieval_enabled,
+            knowledge_source_paths=request.knowledge_source_paths,
         )
     except Exception as error:
         raise HTTPException(
@@ -276,6 +282,8 @@ def submit_analysis_job(
             config_path=request.config_path,
             artifact_root=request.artifact_root,
             bucket_size_minutes=request.bucket_size_minutes,
+            retrieval_enabled=request.retrieval_enabled,
+            knowledge_source_paths=request.knowledge_source_paths,
         )
         incidents = _load_incidents(pipeline_result.artifact_dir)
         anomalies = _load_anomalies(pipeline_result.artifact_dir)

@@ -10,6 +10,7 @@ from incident_agent.schemas.llm import (
     LLMCompletionResponse,
     LLMStructuredReportRequest,
     LLMStructuredReportResponse,
+    LLMUsage,
 )
 from incident_agent.schemas.report import EvidenceItem, IncidentReport
 
@@ -19,7 +20,19 @@ class MockLLMProvider(BaseLLMProvider):
 
     def complete(self, request: LLMCompletionRequest) -> LLMCompletionResponse:
         content = f"Mock completion for model={request.model}. Prompt size={len(request.prompt)}."
-        return LLMCompletionResponse(model=request.model, content=content, raw_response={})
+        token_estimate = max(1, len(request.prompt) // 4)
+        return LLMCompletionResponse(
+            model=request.model,
+            content=content,
+            raw_response={},
+            usage=LLMUsage(
+                prompt_tokens=token_estimate,
+                completion_tokens=max(1, len(content) // 4),
+                total_tokens=token_estimate + max(1, len(content) // 4),
+                latency_ms=1.0,
+                estimated_cost_usd=0.0,
+            ),
+        )
 
     def generate_structured_report(
         self,
@@ -52,6 +65,14 @@ class MockLLMProvider(BaseLLMProvider):
             model=request.model,
             content=json.dumps(report.model_dump(mode="json")),
             raw_response={"provider": "mock"},
+            usage=LLMUsage(
+                prompt_tokens=max(1, len(request.prompt) // 4),
+                completion_tokens=max(1, len(report.model_dump_json()) // 4),
+                total_tokens=max(1, len(request.prompt) // 4)
+                + max(1, len(report.model_dump_json()) // 4),
+                latency_ms=1.0,
+                estimated_cost_usd=0.0,
+            ),
         )
 
 

@@ -30,8 +30,20 @@ The context requires:
 - `EvidenceBundle`
 - `IncidentSummaryFeatures`
 - `RootCauseHypothesis`
+- optional retrieved knowledge snippets (`RetrievedSnippet`)
 
 This keeps prompt generation testable without any provider calls.
+
+## Retrieval-augmented context
+
+When `knowledge.enabled=true`, prompts include a `retrieved_context` section built from
+local runbooks and historical incident artifacts. Each snippet includes:
+- `citation_id`
+- `source_path`
+- `score`
+- `content`
+
+These citations are also persisted in `FinalIncidentReport.citations`.
 
 ## Hallucination guardrails
 

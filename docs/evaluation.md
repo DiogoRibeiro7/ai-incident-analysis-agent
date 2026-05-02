@@ -24,7 +24,8 @@ Per scenario and mode, the harness records:
 - hallucination rate
 - report completeness
 - latency (seconds)
-- token usage (when available; currently `null`)
+- token usage
+- estimated cost (USD)
 
 ## Artifacts
 

@@ -43,7 +43,9 @@ def serialize_report_as_markdown(report: FinalIncidentReport) -> str:
         "## Inferences\n"
         f"{_markdown_list(report.inferences)}\n\n"
         "## Uncertainties\n"
-        f"{_markdown_list(report.uncertainties)}\n"
+        f"{_markdown_list(report.uncertainties)}\n\n"
+        "## Citations\n"
+        f"{_markdown_list(report.citations)}\n"
     )
 
 
@@ -155,6 +157,7 @@ def serialize_report_as_html(report: FinalIncidentReport) -> str:
         f"        {_html_list_section('Facts', report.facts)}\n"
         f"        {_html_list_section('Inferences', report.inferences)}\n"
         f"        {_html_list_section('Uncertainties', report.uncertainties)}\n"
+        f"        {_html_list_section('Citations', report.citations)}\n"
         "      </div>\n"
         "    </section>\n"
         "  </main>\n"

@@ -44,6 +44,15 @@ class ResilienceConfig(BaseModel):
     allow_missing_metrics: bool = True
 
 
+class KnowledgeConfig(BaseModel):
+    """Retrieval context configuration."""
+
+    enabled: bool = False
+    source_paths: list[str] = Field(default_factory=list)
+    top_k: int = 3
+    max_snippet_chars: int = 360
+
+
 def load_settings_from_yaml(path: Path) -> dict[str, Any]:
     """Load settings from a YAML file.
 
@@ -76,3 +85,13 @@ def load_resilience_config(path: str | Path = "configs/default.yaml") -> Resilie
     if not isinstance(section, dict):
         raise ValueError("The 'resilience' section must be a mapping.")
     return ResilienceConfig.model_validate(section)
+
+
+def load_knowledge_config(path: str | Path = "configs/default.yaml") -> KnowledgeConfig:
+    """Load retrieval knowledge config from YAML."""
+
+    loaded = load_settings_from_yaml(Path(path))
+    section = loaded.get("knowledge", {})
+    if not isinstance(section, dict):
+        raise ValueError("The 'knowledge' section must be a mapping.")
+    return KnowledgeConfig.model_validate(section)

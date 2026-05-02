@@ -17,3 +17,4 @@ class FinalIncidentReport(BaseModel):
     facts: list[str] = Field(default_factory=list)
     inferences: list[str] = Field(default_factory=list)
     uncertainties: list[str] = Field(default_factory=list)
+    citations: list[str] = Field(default_factory=list)

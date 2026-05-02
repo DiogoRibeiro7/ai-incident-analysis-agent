@@ -14,13 +14,19 @@ from incident_agent.anomaly_detection.engine import (
     detect_anomalies,
     load_anomaly_detection_config,
 )
-from incident_agent.core.settings import load_observability_config, load_resilience_config
+from incident_agent.core.settings import (
+    KnowledgeConfig,
+    load_knowledge_config,
+    load_observability_config,
+    load_resilience_config,
+)
 from incident_agent.correlation.engine import (
     correlate_anomalies,
     load_correlation_config,
     load_dependency_graph_for_correlation,
 )
 from incident_agent.ingest.files import load_logs, load_metrics
+from incident_agent.knowledge.retrieval import retrieve_context
 from incident_agent.llm.base import BaseLLMProvider, LLMProviderError
 from incident_agent.llm.factory import create_provider, load_llm_config
 from incident_agent.normalization.timeline import (
@@ -38,8 +44,12 @@ from incident_agent.schemas.anomaly import AnomalyDetectionResult
 from incident_agent.schemas.events import LogEvent, MetricPoint
 from incident_agent.schemas.final_report import FinalIncidentReport
 from incident_agent.schemas.incident import IncidentCorrelationResult
-from incident_agent.schemas.llm import LLMCompletionRequest
-from incident_agent.schemas.pipeline import PipelineFailureSummary, PipelineRunResult
+from incident_agent.schemas.llm import LLMCompletionRequest, LLMUsage
+from incident_agent.schemas.pipeline import (
+    LLMUsageSummary,
+    PipelineFailureSummary,
+    PipelineRunResult,
+)
 from incident_agent.schemas.rca import RCAResult
 from incident_agent.schemas.timeline import TimelineAlignmentResult
 from incident_agent.utils.observability import (
@@ -62,6 +72,8 @@ def run_pipeline_from_files(
     config_path: str = "configs/default.yaml",
     artifact_root: str = "artifacts/pipeline",
     bucket_size_minutes: int | None = None,
+    retrieval_enabled: bool | None = None,
+    knowledge_source_paths: list[str] | None = None,
 ) -> PipelineRunResult:
     """Run ingestion, normalization, anomaly detection, correlation, RCA, and reporting."""
     observability = load_observability_config(config_path)
@@ -79,6 +91,7 @@ def run_pipeline_from_files(
     failure_summaries: list[PipelineFailureSummary] = []
     completed_stages: list[str] = []
     used_intermediate_cache = False
+    llm_usage_summary = LLMUsageSummary()
 
     with bind_context(run_id=run_id):
         log_event(
@@ -138,6 +151,7 @@ def run_pipeline_from_files(
                     completed_stages=completed_stages,
                     used_intermediate_cache=used_intermediate_cache,
                     used_llm_cache=False,
+                    llm_usage=LLMUsageSummary(),
                 )
                 alignment_payload, anomalies_payload, incidents_payload, rca_payload = (
                     _artifact_payloads(
@@ -287,11 +301,21 @@ def run_pipeline_from_files(
                 reports: list[FinalIncidentReport] = []
                 try:
                     llm_config = load_llm_config(config_path)
+                    knowledge_config = load_knowledge_config(config_path)
+                    if retrieval_enabled is not None:
+                        knowledge_config = knowledge_config.model_copy(
+                            update={"enabled": retrieval_enabled}
+                        )
+                    if knowledge_source_paths is not None:
+                        knowledge_config = knowledge_config.model_copy(
+                            update={"source_paths": knowledge_source_paths}
+                        )
                     provider = create_provider(llm_config, config_path=config_path)
-                    reports = _generate_final_reports(
+                    reports, llm_usage_summary = _generate_final_reports(
                         rca_result,
                         provider=provider,
                         completion_model=llm_config.completion_model,
+                        knowledge_config=knowledge_config,
                     )
                 except Exception as error:
                     failure_summaries.append(
@@ -305,6 +329,7 @@ def run_pipeline_from_files(
                         "Final report generation failed; upstream artifacts were preserved."
                     )
                     reports = []
+                    llm_usage_summary = LLMUsageSummary()
                 log_event(
                     logger,
                     level=logging.INFO,
@@ -330,6 +355,7 @@ def run_pipeline_from_files(
                     completed_stages=completed_stages,
                     used_intermediate_cache=used_intermediate_cache,
                     used_llm_cache=used_llm_cache,
+                    llm_usage=llm_usage_summary,
                 )
                 alignment_payload, anomalies_payload, incidents_payload, rca_payload = (
                     _artifact_payloads(
@@ -380,23 +406,32 @@ def _generate_final_reports(
     *,
     provider: BaseLLMProvider,
     completion_model: str,
-) -> list[FinalIncidentReport]:
+    knowledge_config: KnowledgeConfig,
+) -> tuple[list[FinalIncidentReport], LLMUsageSummary]:
     reports: list[FinalIncidentReport] = []
+    usages: list[tuple[str, LLMUsage]] = []
     bundle_by_id = {bundle.incident_id: bundle for bundle in rca_result.bundles}
     summary_by_id = {summary.incident_id: summary for summary in rca_result.summaries}
 
     for hypothesis in rca_result.hypotheses:
         bundle = bundle_by_id[hypothesis.incident_id]
         summary = summary_by_id[hypothesis.incident_id]
+        retrieved_context = retrieve_context(
+            config=knowledge_config,
+            evidence_bundle=bundle,
+            summary_features=summary,
+            root_cause_hypothesis=hypothesis,
+        )
         context = PromptRenderContext(
             incident_id=hypothesis.incident_id,
             evidence_bundle=bundle,
             summary_features=summary,
             root_cause_hypothesis=hypothesis,
+            retrieved_context=retrieved_context,
         )
         prompts = render_all_prompts(context)
 
-        incident_summary = _complete_or_fallback(
+        incident_summary, usage = _complete_or_fallback(
             provider=provider,
             model=completion_model,
             prompt=prompts["incident_summary"],
@@ -405,7 +440,8 @@ def _generate_final_reports(
                 f"{', '.join(summary.impacted_services)}."
             ),
         )
-        root_cause_explanation = _complete_or_fallback(
+        usages.append((completion_model, usage))
+        root_cause_explanation, usage = _complete_or_fallback(
             provider=provider,
             model=completion_model,
             prompt=prompts["root_cause_explanation"],
@@ -414,13 +450,15 @@ def _generate_final_reports(
                 f"with confidence {hypothesis.confidence_score:.2f}."
             ),
         )
-        executive_summary = _complete_or_fallback(
+        usages.append((completion_model, usage))
+        executive_summary, usage = _complete_or_fallback(
             provider=provider,
             model=completion_model,
             prompt=prompts["executive_summary"],
             fallback="Service degradation detected and triaged with heuristic RCA output.",
         )
-        engineering_handoff = _complete_or_fallback(
+        usages.append((completion_model, usage))
+        engineering_handoff, usage = _complete_or_fallback(
             provider=provider,
             model=completion_model,
             prompt=prompts["engineering_handoff"],
@@ -428,7 +466,8 @@ def _generate_final_reports(
                 "Inspect root service dependency timeouts, saturation metrics, and recent changes."
             ),
         )
-        remediation_text = _complete_or_fallback(
+        usages.append((completion_model, usage))
+        remediation_text, usage = _complete_or_fallback(
             provider=provider,
             model=completion_model,
             prompt=prompts["remediation_suggestions"],
@@ -452,6 +491,7 @@ def _generate_final_reports(
         ][:5]
         if not remediation_suggestions:
             remediation_suggestions = [remediation_text]
+        citations = [snippet.citation_id for snippet in retrieved_context]
 
         reports.append(
             FinalIncidentReport(
@@ -464,9 +504,11 @@ def _generate_final_reports(
                 facts=facts,
                 inferences=inferences,
                 uncertainties=uncertainties,
+                citations=citations,
             )
         )
-    return reports
+        usages.append((completion_model, usage))
+    return reports, _aggregate_llm_usage(usages)
 
 
 def _complete_or_fallback(
@@ -475,7 +517,7 @@ def _complete_or_fallback(
     model: str,
     prompt: str,
     fallback: str,
-) -> str:
+) -> tuple[str, LLMUsage]:
     try:
         response = provider.complete(
             LLMCompletionRequest(
@@ -483,9 +525,28 @@ def _complete_or_fallback(
                 model=model,
             )
         )
-        return response.content.strip() or fallback
+        return response.content.strip() or fallback, response.usage
     except LLMProviderError:
-        return fallback
+        return fallback, LLMUsage()
+
+
+def _aggregate_llm_usage(items: list[tuple[str, LLMUsage]]) -> LLMUsageSummary:
+    total_prompt_tokens = sum(item.prompt_tokens or 0 for _, item in items)
+    total_completion_tokens = sum(item.completion_tokens or 0 for _, item in items)
+    total_tokens = sum(item.total_tokens or 0 for _, item in items)
+    total_cost = round(sum(item.estimated_cost_usd or 0.0 for _, item in items), 8)
+    latencies = [item.latency_ms for _, item in items if item.latency_ms is not None]
+    average_latency = round(sum(latencies) / len(latencies), 3) if latencies else 0.0
+    models = sorted({model for model, _ in items})
+    return LLMUsageSummary(
+        call_count=len(items),
+        total_prompt_tokens=total_prompt_tokens,
+        total_completion_tokens=total_completion_tokens,
+        total_tokens=total_tokens,
+        total_estimated_cost_usd=total_cost,
+        average_latency_ms=average_latency,
+        models=models,
+    )
 
 
 def _load_logs_with_degradation(
@@ -609,6 +670,7 @@ def _build_pipeline_result(
     completed_stages: list[str],
     used_intermediate_cache: bool,
     used_llm_cache: bool,
+    llm_usage: LLMUsageSummary,
 ) -> PipelineRunResult:
     return PipelineRunResult(
         run_id=run_id,
@@ -624,6 +686,7 @@ def _build_pipeline_result(
         failure_summaries=failure_summaries.copy(),
         used_intermediate_cache=used_intermediate_cache,
         used_llm_cache=used_llm_cache,
+        llm_usage=llm_usage,
         final_reports=reports,
     )
 

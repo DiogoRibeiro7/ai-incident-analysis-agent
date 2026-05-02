@@ -30,6 +30,8 @@ def test_mock_provider_supports_plain_and_structured_calls() -> None:
 
     assert completion.content.startswith("Mock completion")
     assert "incident_summary" in structured.content
+    assert completion.usage.total_tokens is not None
+    assert structured.usage.total_tokens is not None
 
 
 def test_factory_creates_mock_provider() -> None:

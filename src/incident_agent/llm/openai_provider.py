@@ -20,6 +20,7 @@ from incident_agent.schemas.llm import (
     LLMCompletionResponse,
     LLMStructuredReportRequest,
     LLMStructuredReportResponse,
+    LLMUsage,
 )
 from incident_agent.utils.observability import execution_span, get_logger, log_event
 
@@ -37,6 +38,7 @@ class OpenAIProvider(BaseLLMProvider):
         timeout_seconds: float = 20.0,
         max_retries: int = 3,
         retry_backoff_seconds: float = 1.0,
+        model_pricing_usd_per_1k_tokens: dict[str, float] | None = None,
     ) -> None:
         self._api_key = api_key or os.getenv("INCIDENT_AGENT_OPENAI_API_KEY")
         if not self._api_key:
@@ -47,6 +49,7 @@ class OpenAIProvider(BaseLLMProvider):
         self._timeout_seconds = timeout_seconds
         self._max_retries = max_retries
         self._retry_backoff_seconds = retry_backoff_seconds
+        self._model_pricing_usd_per_1k_tokens = model_pricing_usd_per_1k_tokens or {}
 
     def complete(self, request: LLMCompletionRequest) -> LLMCompletionResponse:
         payload = {
@@ -62,12 +65,18 @@ class OpenAIProvider(BaseLLMProvider):
             provider="openai",
             model=request.model,
         ):
-            response_json = self._post_with_retries(payload, model=request.model)
+            response_json, latency_ms = self._post_with_retries(payload, model=request.model)
         content = _extract_message_text(response_json)
         return LLMCompletionResponse(
             model=request.model,
             content=content,
             raw_response=response_json,
+            usage=_extract_usage(
+                response_json=response_json,
+                model=request.model,
+                latency_ms=latency_ms,
+                pricing=self._model_pricing_usd_per_1k_tokens,
+            ),
         )
 
     def generate_structured_report(
@@ -88,7 +97,7 @@ class OpenAIProvider(BaseLLMProvider):
             provider="openai",
             model=request.model,
         ):
-            response_json = self._post_with_retries(payload, model=request.model)
+            response_json, latency_ms = self._post_with_retries(payload, model=request.model)
         content = _extract_message_text(response_json)
         try:
             # Ensure it is valid JSON before returning.
@@ -102,9 +111,17 @@ class OpenAIProvider(BaseLLMProvider):
             model=request.model,
             content=content,
             raw_response=response_json,
+            usage=_extract_usage(
+                response_json=response_json,
+                model=request.model,
+                latency_ms=latency_ms,
+                pricing=self._model_pricing_usd_per_1k_tokens,
+            ),
         )
 
-    def _post_with_retries(self, payload: dict[str, object], *, model: str) -> dict[str, object]:
+    def _post_with_retries(
+        self, payload: dict[str, object], *, model: str
+    ) -> tuple[dict[str, object], float]:
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
@@ -293,7 +310,7 @@ class OpenAIProvider(BaseLLMProvider):
                 status_code=response.status_code,
                 duration_ms=duration_ms,
             )
-            return data
+            return data, duration_ms
 
 
 def _extract_message_text(response_json: dict[str, object]) -> str:
@@ -310,3 +327,41 @@ def _extract_message_text(response_json: dict[str, object]) -> str:
     if not isinstance(content, str):
         raise LLMResponseFormatError("Missing text content in provider response.")
     return content
+
+
+def _extract_usage(
+    *,
+    response_json: dict[str, object],
+    model: str,
+    latency_ms: float,
+    pricing: dict[str, float],
+) -> LLMUsage:
+    usage_payload = response_json.get("usage")
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+
+    if isinstance(usage_payload, dict):
+        raw_prompt = usage_payload.get("prompt_tokens")
+        raw_completion = usage_payload.get("completion_tokens")
+        raw_total = usage_payload.get("total_tokens")
+        if isinstance(raw_prompt, int):
+            prompt_tokens = raw_prompt
+        if isinstance(raw_completion, int):
+            completion_tokens = raw_completion
+        if isinstance(raw_total, int):
+            total_tokens = raw_total
+
+    estimated_cost_usd: float | None = None
+    if total_tokens is not None:
+        unit_price = pricing.get(model)
+        if unit_price is not None:
+            estimated_cost_usd = round((total_tokens / 1000.0) * unit_price, 8)
+
+    return LLMUsage(
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+        latency_ms=latency_ms,
+        estimated_cost_usd=estimated_cost_usd,
+    )

@@ -29,7 +29,9 @@ The result is a repository that demonstrates practical AI systems engineering ra
 - Dependency-aware incident correlation
 - Root-cause analysis artifacts with ranked evidence and confidence scores
 - Prompt rendering from structured RCA context
+- Optional retrieval-augmented prompt context from local runbooks and prior incidents
 - Mock and OpenAI provider support
+- Provider token/latency accounting with per-run usage summaries and configurable cost estimation
 - End-to-end pipeline execution with persisted artifacts
 - CLI and FastAPI interfaces
 - JSON observability logging with run/request correlation
@@ -47,8 +49,9 @@ The system is organized as a layered pipeline:
 4. Correlation groups related anomalies into incident candidates using time proximity and service dependency relationships.
 5. RCA ranks evidence, summarizes incident features, and proposes a likely root-cause service.
 6. Prompt rendering converts RCA artifacts into grounded prompt inputs.
-7. Provider execution generates final summaries through a mock or OpenAI backend.
-8. Export and delivery expose artifacts through the CLI, API, and file-based reports.
+7. Optional retrieval injects cited context from runbooks and historical incidents.
+8. Provider execution generates final summaries through a mock or OpenAI backend.
+9. Export and delivery expose artifacts through the CLI, API, and file-based reports.
 
 If you want the module-by-module view, start with [architecture.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/architecture.md).
 
@@ -93,6 +96,13 @@ poetry run incident-agent run-pipeline \
   --metrics data/sample/incident/anomaly_metrics.csv \
   --artifact-root artifacts/pipeline \
   --bucket-size-minutes 5
+
+poetry run incident-agent run-pipeline \
+  --logs data/sample/incident/anomaly_logs.csv \
+  --metrics data/sample/incident/anomaly_metrics.csv \
+  --retrieval-enabled \
+  --knowledge-source-paths data/knowledge/runbooks \
+  --knowledge-source-paths data/knowledge/incidents
 ```
 
 Run the API locally:
@@ -242,16 +252,13 @@ This makes repeated runs safer for demos and easier to debug.
 
 Current limitations are explicit:
 - ingestion is local-file based; there are no live observability platform connectors yet
-- retrieval over runbooks and incident history is not implemented
 - RCA is heuristic, not learned
 - OpenAI is the only real provider currently supported
-- token accounting and cost reporting are not implemented
 - deployment packaging and production infrastructure are not included
 
 ## Future Work
 
 Logical next steps for the project are:
-- add retrieval over runbooks and historical incidents
 - add live connectors for systems like Grafana, CloudWatch, or Datadog
 - improve evidence ranking and output validation policies
 - add deployment manifests and operational packaging

@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class LLMUsage(BaseModel):
+    """Usage metadata for one provider response."""
+
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+    latency_ms: float | None = None
+    estimated_cost_usd: float | None = None
 
 
 class LLMCompletionRequest(BaseModel):
@@ -20,6 +30,7 @@ class LLMCompletionResponse(BaseModel):
     model: str
     content: str
     raw_response: dict[str, object]
+    usage: LLMUsage = Field(default_factory=LLMUsage)
 
 
 class LLMStructuredReportRequest(BaseModel):
@@ -37,3 +48,4 @@ class LLMStructuredReportResponse(BaseModel):
     model: str
     content: str
     raw_response: dict[str, object]
+    usage: LLMUsage = Field(default_factory=LLMUsage)

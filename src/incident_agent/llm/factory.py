@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from incident_agent.core.settings import load_resilience_config, load_settings_from_yaml
 from incident_agent.llm.base import BaseLLMProvider, LLMProviderError
@@ -25,6 +25,7 @@ class LLMConfig(BaseModel):
     timeout_seconds: float = 20.0
     max_retries: int = 3
     retry_backoff_seconds: float = 1.0
+    model_pricing_usd_per_1k_tokens: dict[str, float] = Field(default_factory=dict)
 
 
 def load_llm_config(path: str | Path = "configs/default.yaml") -> LLMConfig:
@@ -52,6 +53,7 @@ def create_provider(
             timeout_seconds=config.timeout_seconds,
             max_retries=config.max_retries,
             retry_backoff_seconds=config.retry_backoff_seconds,
+            model_pricing_usd_per_1k_tokens=config.model_pricing_usd_per_1k_tokens,
         )
     else:
         raise LLMProviderError(f"Unsupported provider '{config.provider}'.")

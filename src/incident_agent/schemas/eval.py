@@ -56,6 +56,7 @@ class EvaluationMetrics(BaseModel):
     report_completeness: float
     latency_seconds: float
     token_usage: int | None = None
+    estimated_cost_usd: float | None = None
 
 
 class EvaluationRunRecord(BaseModel):
@@ -83,6 +84,8 @@ class EvaluationSummary(BaseModel):
     hallucination_rate: float
     report_completeness: float
     latency_seconds: float
+    average_token_usage: float | None = None
+    total_estimated_cost_usd: float | None = None
 
 
 class EvaluationResult(BaseModel):

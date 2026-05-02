@@ -9,6 +9,7 @@ Run one command that executes:
 - correlation
 - RCA
 - final report generation
+- optional retrieval context enrichment with citations
 
 and persists each stage output as inspectable artifacts.
 
@@ -29,6 +30,13 @@ poetry run incident-agent run-pipeline \
   --metrics data/sample/incident/anomaly_metrics.csv \
   --artifact-root artifacts/pipeline \
   --bucket-size-minutes 5
+
+poetry run incident-agent run-pipeline \
+  --logs data/sample/incident/anomaly_logs.csv \
+  --metrics data/sample/incident/anomaly_metrics.csv \
+  --retrieval-enabled \
+  --knowledge-source-paths data/knowledge/runbooks \
+  --knowledge-source-paths data/knowledge/incidents
 ```
 
 ## API usage
@@ -42,6 +50,8 @@ Request fields:
 - `config_path` (optional)
 - `artifact_root` (optional)
 - `bucket_size_minutes` (optional)
+- `retrieval_enabled` (optional)
+- `knowledge_source_paths` (optional)
 
 ## Artifact structure
 
@@ -106,3 +116,7 @@ Relevant config keys in `configs/default.yaml`:
 - `resilience.intermediate_cache_dir`
 - `resilience.allow_missing_logs`
 - `resilience.allow_missing_metrics`
+- `knowledge.enabled`
+- `knowledge.source_paths`
+- `knowledge.top_k`
+- `knowledge.max_snippet_chars`

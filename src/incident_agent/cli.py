@@ -218,6 +218,17 @@ def run_pipeline_command(
     bucket_size_minutes: Annotated[
         int | None, typer.Option(help="Override bucket size (1, 5, 15).")
     ] = None,
+    retrieval_enabled: Annotated[
+        bool | None,
+        typer.Option(
+            "--retrieval-enabled/--no-retrieval-enabled",
+            help="Override retrieval setting from config.",
+        ),
+    ] = None,
+    knowledge_source_paths: Annotated[
+        list[str] | None,
+        typer.Option(help="Optional knowledge source paths (repeat option)."),
+    ] = None,
 ) -> None:
     """Run the full pipeline and persist artifacts."""
 
@@ -227,6 +238,8 @@ def run_pipeline_command(
         config_path=config,
         artifact_root=artifact_root,
         bucket_size_minutes=bucket_size_minutes,
+        retrieval_enabled=retrieval_enabled,
+        knowledge_source_paths=knowledge_source_paths,
     )
     console.print_json(json.dumps(result.model_dump(mode="json")))
 

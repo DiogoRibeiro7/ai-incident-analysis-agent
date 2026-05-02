@@ -11,6 +11,13 @@ resilience:
   intermediate_cache_dir: artifacts/cache/pipeline
   allow_missing_logs: true
   allow_missing_metrics: true
+knowledge:
+  enabled: false
+  source_paths:
+    - data/knowledge/runbooks
+    - data/knowledge/incidents
+  top_k: 3
+  max_snippet_chars: 360
 llm:
   provider: mock
   report_model: gpt-4.1-mini
@@ -18,6 +25,9 @@ llm:
   timeout_seconds: 20.0
   max_retries: 3
   retry_backoff_seconds: 1.0
+  model_pricing_usd_per_1k_tokens:
+    gpt-4.1-mini: 0.001
+    gpt-4.1: 0.01
 incident:
   error_level_threshold: ERROR
   metric_zscore_threshold: 2.5

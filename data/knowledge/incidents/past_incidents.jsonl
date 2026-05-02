@@ -1,0 +1,2 @@
+{"incident_id":"hist-2026-02-14-01","service":"checkout-service","signal":"latency_spike","root_cause":"db_pool_exhaustion","resolution":"increase pool and cap concurrent expensive queries"}
+{"incident_id":"hist-2026-02-21-03","service":"api-service","signal":"traffic_drop","root_cause":"upstream checkout timeout cascade","resolution":"circuit breaker tuning"}

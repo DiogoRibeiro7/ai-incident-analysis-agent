@@ -74,19 +74,40 @@ def _evaluate_scenario_mode(
     start = perf_counter()
     try:
         if mode == "heuristic-only":
-            report, predicted_root, impacted_services, incident_count = _run_heuristic_mode(
+            (
+                report,
+                predicted_root,
+                impacted_services,
+                incident_count,
+                token_usage,
+                estimated_cost,
+            ) = _run_heuristic_mode(
                 scenario=scenario,
                 config_path=config_path,
             )
         elif mode == "mock-llm":
-            report, predicted_root, impacted_services, incident_count = _run_pipeline_mode(
+            (
+                report,
+                predicted_root,
+                impacted_services,
+                incident_count,
+                token_usage,
+                estimated_cost,
+            ) = _run_pipeline_mode(
                 scenario=scenario,
                 config_path=config_path,
                 run_dir=run_dir,
                 provider="mock",
             )
         else:
-            report, predicted_root, impacted_services, incident_count = _run_pipeline_mode(
+            (
+                report,
+                predicted_root,
+                impacted_services,
+                incident_count,
+                token_usage,
+                estimated_cost,
+            ) = _run_pipeline_mode(
                 scenario=scenario,
                 config_path=config_path,
                 run_dir=run_dir,
@@ -102,6 +123,7 @@ def _evaluate_scenario_mode(
             report_completeness=0.0,
             latency_seconds=round(latency, 4),
             token_usage=None,
+            estimated_cost_usd=None,
         )
         return EvaluationRunRecord(
             scenario_id=scenario.scenario_id,
@@ -119,6 +141,8 @@ def _evaluate_scenario_mode(
         predicted_root=predicted_root,
         impacted_services=impacted_services,
         latency_seconds=latency,
+        token_usage=token_usage,
+        estimated_cost_usd=estimated_cost,
     )
     return EvaluationRunRecord(
         scenario_id=scenario.scenario_id,
@@ -135,7 +159,7 @@ def _run_heuristic_mode(
     *,
     scenario: BenchmarkScenario,
     config_path: str,
-) -> tuple[FinalIncidentReport, str | None, list[str], int]:
+) -> tuple[FinalIncidentReport, str | None, list[str], int, int | None, float | None]:
     rca = run_rca_from_files(
         log_path=scenario.logs_path,
         metric_path=scenario.metrics_path,
@@ -154,7 +178,7 @@ def _run_heuristic_mode(
             inferences=[],
             uncertainties=["No incidents were produced by correlation and RCA."],
         )
-        return report, None, [], 0
+        return report, None, [], 0, None, None
 
     hypothesis = rca.hypotheses[0]
     summary = rca.summaries[0]
@@ -183,6 +207,8 @@ def _run_heuristic_mode(
         hypothesis.suspected_root_cause_service,
         summary.impacted_services,
         len(rca.hypotheses),
+        None,
+        None,
     )
 
 
@@ -192,7 +218,7 @@ def _run_pipeline_mode(
     config_path: str,
     run_dir: Path,
     provider: str,
-) -> tuple[FinalIncidentReport, str | None, list[str], int]:
+) -> tuple[FinalIncidentReport, str | None, list[str], int, int | None, float | None]:
     effective_config = _write_config_with_provider(
         config_path=config_path,
         provider=provider,
@@ -217,7 +243,14 @@ def _run_pipeline_mode(
             inferences=[],
             uncertainties=["No final reports were generated for this run."],
         )
-        return report, None, [], result.incident_count
+        return (
+            report,
+            None,
+            [],
+            result.incident_count,
+            result.llm_usage.total_tokens,
+            result.llm_usage.total_estimated_cost_usd,
+        )
 
     report = result.final_reports[0]
     return (
@@ -225,6 +258,8 @@ def _run_pipeline_mode(
         _extract_root_service(report),
         _extract_impacted_services(report),
         result.incident_count,
+        result.llm_usage.total_tokens,
+        result.llm_usage.total_estimated_cost_usd,
     )
 
 
@@ -269,6 +304,8 @@ def _score_report(
     predicted_root: str | None,
     impacted_services: list[str],
     latency_seconds: float,
+    token_usage: int | None,
+    estimated_cost_usd: float | None,
 ) -> EvaluationMetrics:
     expected_root = scenario.expected_root_cause
     root_correct = 1.0 if expected_root is not None and predicted_root == expected_root else 0.0
@@ -322,7 +359,8 @@ def _score_report(
         hallucination_rate=round(hallucination_rate, 4),
         report_completeness=round(completeness, 4),
         latency_seconds=round(latency_seconds, 4),
-        token_usage=None,
+        token_usage=token_usage,
+        estimated_cost_usd=estimated_cost_usd,
     )
 
 
@@ -357,6 +395,20 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
                     mean(item.metrics.report_completeness for item in successful), 4
                 ),
                 latency_seconds=round(mean(item.metrics.latency_seconds for item in successful), 4),
+                average_token_usage=round(
+                    mean(
+                        item.metrics.token_usage
+                        for item in successful
+                        if item.metrics.token_usage is not None
+                    ),
+                    2,
+                )
+                if any(item.metrics.token_usage is not None for item in successful)
+                else None,
+                total_estimated_cost_usd=round(
+                    sum(item.metrics.estimated_cost_usd or 0.0 for item in successful),
+                    8,
+                ),
             )
         else:
             summary = EvaluationSummary(
@@ -369,6 +421,8 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
                 hallucination_rate=1.0,
                 report_completeness=0.0,
                 latency_seconds=0.0,
+                average_token_usage=None,
+                total_estimated_cost_usd=None,
             )
         summaries.append(summary)
     return summaries
@@ -392,16 +446,27 @@ def _summary_markdown(result: EvaluationResult) -> str:
         "# Evaluation Summary\n\n"
         f"Run ID: `{result.run_id}`\n\n"
         "| Mode | Runs | Success | Root Cause | Impacted Services | Grounding "
-        "| Hallucination | Completeness | Latency (s) |\n"
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|\n"
+        "| Hallucination | Completeness | Latency (s) | Avg Tokens | Total Cost (USD) |\n"
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
     )
     lines = []
     for summary in result.summaries:
+        avg_tokens = (
+            summary.average_token_usage
+            if summary.average_token_usage is not None
+            else "n/a"
+        )
+        total_cost = (
+            summary.total_estimated_cost_usd
+            if summary.total_estimated_cost_usd is not None
+            else "n/a"
+        )
         lines.append(
             "| "
             f"{summary.mode} | {summary.runs} | {summary.success_rate:.2f} | "
             f"{summary.root_cause_correctness:.2f} | {summary.impacted_service_correctness:.2f} | "
             f"{summary.factual_grounding:.2f} | {summary.hallucination_rate:.2f} | "
-            f"{summary.report_completeness:.2f} | {summary.latency_seconds:.2f} |"
+            f"{summary.report_completeness:.2f} | {summary.latency_seconds:.2f} | "
+            f"{avg_tokens} | {total_cost} |"
         )
     return header + "\n".join(lines) + "\n"
