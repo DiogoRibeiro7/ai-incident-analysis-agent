@@ -121,6 +121,8 @@ poetry run incident-agent run-pipeline \
   --prometheus-query error_rate='sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)'
 ```
 
+Prometheus note: the third command requires a reachable Prometheus instance.
+
 Run the API locally:
 
 ```bash
@@ -134,6 +136,8 @@ cp .env.example .env
 docker compose up --build
 curl http://localhost:8000/health
 ```
+
+Docker note: requires Docker Engine and Compose plugin installed.
 
 ## How the Pipeline Works
 
@@ -337,6 +341,7 @@ tests/               # Unit and integration tests
 - [CHANGELOG.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/CHANGELOG.md)
 - [CONTRIBUTING.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/CONTRIBUTING.md)
 - [LICENSE](C:/Users/diogo/work_code/ai-incident-analysis-agent/LICENSE)
+- [clean_clone_validation.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/clean_clone_validation.md)
 - [architecture.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/architecture.md)
 - [ingestion.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/ingestion.md)
 - [anomaly_detection.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/anomaly_detection.md)
