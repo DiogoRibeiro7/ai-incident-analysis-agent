@@ -20,7 +20,7 @@ from incident_agent.schemas.eval import (
     SyntheticScenarioGeneratorConfig,
     SyntheticScenarioType,
 )
-from incident_agent.schemas.final_report import FinalIncidentReport
+from incident_agent.schemas.final_report import FinalIncidentReport, ReviewStatus
 from incident_agent.services.analyze import analyze_from_files
 from incident_agent.services.correlate import correlate_incidents_from_files
 from incident_agent.services.demo import run_demo
@@ -30,6 +30,7 @@ from incident_agent.services.pipeline import run_pipeline_from_files
 from incident_agent.services.rca import run_rca_from_files
 from incident_agent.synthetic.generator import generate_benchmark_scenario
 from incident_agent.utils.observability import configure_logging
+from incident_agent.workflow.review import transition_report_review
 
 app = typer.Typer(help="CLI for the AI incident analysis agent.")
 console = Console()
@@ -229,6 +230,27 @@ def run_pipeline_command(
         list[str] | None,
         typer.Option(help="Optional knowledge source paths (repeat option)."),
     ] = None,
+    metrics_source: Annotated[
+        str,
+        typer.Option(
+            help="Metrics source: file or prometheus.",
+            click_type=click.Choice(["file", "prometheus"]),
+        ),
+    ] = "file",
+    prometheus_url: Annotated[
+        str | None,
+        typer.Option(help="Optional Prometheus base URL override."),
+    ] = None,
+    prometheus_step_seconds: Annotated[
+        int | None,
+        typer.Option(help="Optional Prometheus query step in seconds."),
+    ] = None,
+    prometheus_query: Annotated[
+        list[str] | None,
+        typer.Option(
+            help="Prometheus metric query mapping in metric=query format (repeat option)."
+        ),
+    ] = None,
 ) -> None:
     """Run the full pipeline and persist artifacts."""
 
@@ -240,6 +262,10 @@ def run_pipeline_command(
         bucket_size_minutes=bucket_size_minutes,
         retrieval_enabled=retrieval_enabled,
         knowledge_source_paths=knowledge_source_paths,
+        metrics_source=metrics_source,
+        prometheus_url=prometheus_url,
+        prometheus_step_seconds=prometheus_step_seconds,
+        prometheus_queries=_parse_prometheus_query_flags(prometheus_query),
     )
     console.print_json(json.dumps(result.model_dump(mode="json")))
 
@@ -377,6 +403,96 @@ def export_report(
         encoding="utf-8",
     )
     console.print(f"Exported report to {target}")
+
+
+@app.command("mark-reviewed")
+def mark_reviewed(
+    incident_id: Annotated[str, typer.Option(help="Incident ID to transition.")],
+    reviewer: Annotated[str, typer.Option(help="Reviewer identifier.")],
+    note: Annotated[str, typer.Option(help="Review note.")],
+    artifact_dir: Annotated[
+        str | None,
+        typer.Option(help="Full run artifact directory path."),
+    ] = None,
+    artifact_root: Annotated[
+        str, typer.Option(help="Root artifact directory (used with --latest).")
+    ] = "artifacts/pipeline",
+    latest: Annotated[
+        bool, typer.Option(help="Use latest run directory under artifact root.")
+    ] = True,
+) -> None:
+    """Transition report from draft to reviewed."""
+
+    report = _transition_report_from_artifacts(
+        incident_id=incident_id,
+        to_status="reviewed",
+        reviewer=reviewer,
+        note=note,
+        artifact_dir=artifact_dir,
+        artifact_root=artifact_root,
+        latest=latest,
+    )
+    console.print_json(json.dumps(report.model_dump(mode="json")))
+
+
+@app.command("approve-report")
+def approve_report(
+    incident_id: Annotated[str, typer.Option(help="Incident ID to transition.")],
+    reviewer: Annotated[str, typer.Option(help="Reviewer identifier.")],
+    note: Annotated[str, typer.Option(help="Approval note.")],
+    artifact_dir: Annotated[
+        str | None,
+        typer.Option(help="Full run artifact directory path."),
+    ] = None,
+    artifact_root: Annotated[
+        str, typer.Option(help="Root artifact directory (used with --latest).")
+    ] = "artifacts/pipeline",
+    latest: Annotated[
+        bool, typer.Option(help="Use latest run directory under artifact root.")
+    ] = True,
+) -> None:
+    """Transition report from reviewed to approved."""
+
+    report = _transition_report_from_artifacts(
+        incident_id=incident_id,
+        to_status="approved",
+        reviewer=reviewer,
+        note=note,
+        artifact_dir=artifact_dir,
+        artifact_root=artifact_root,
+        latest=latest,
+    )
+    console.print_json(json.dumps(report.model_dump(mode="json")))
+
+
+@app.command("reject-report")
+def reject_report(
+    incident_id: Annotated[str, typer.Option(help="Incident ID to transition.")],
+    reviewer: Annotated[str, typer.Option(help="Reviewer identifier.")],
+    note: Annotated[str, typer.Option(help="Rejection note.")],
+    artifact_dir: Annotated[
+        str | None,
+        typer.Option(help="Full run artifact directory path."),
+    ] = None,
+    artifact_root: Annotated[
+        str, typer.Option(help="Root artifact directory (used with --latest).")
+    ] = "artifacts/pipeline",
+    latest: Annotated[
+        bool, typer.Option(help="Use latest run directory under artifact root.")
+    ] = True,
+) -> None:
+    """Transition report from reviewed to rejected."""
+
+    report = _transition_report_from_artifacts(
+        incident_id=incident_id,
+        to_status="rejected",
+        reviewer=reviewer,
+        note=note,
+        artifact_dir=artifact_dir,
+        artifact_root=artifact_root,
+        latest=latest,
+    )
+    console.print_json(json.dumps(report.model_dump(mode="json")))
 
 
 @app.command("run-eval")
@@ -546,6 +662,64 @@ def _as_string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, str)]
+
+
+def _parse_prometheus_query_flags(values: list[str] | None) -> dict[str, str] | None:
+    if values is None:
+        return None
+    parsed: dict[str, str] = {}
+    for value in values:
+        metric_name, separator, query = value.partition("=")
+        if not separator or not metric_name.strip() or not query.strip():
+            raise typer.BadParameter(
+                "Each --prometheus-query must be in metric_name=query format."
+            )
+        parsed[metric_name.strip()] = query.strip()
+    return parsed
+
+
+def _transition_report_from_artifacts(
+    *,
+    incident_id: str,
+    to_status: ReviewStatus,
+    reviewer: str,
+    note: str,
+    artifact_dir: str | None,
+    artifact_root: str,
+    latest: bool,
+) -> FinalIncidentReport:
+    run_dir = _resolve_run_directory(
+        artifact_dir=artifact_dir,
+        artifact_root=artifact_root,
+        latest=latest,
+    )
+    reports_path = run_dir / "reports" / "final_reports.json"
+    reports = _load_reports(reports_path)
+    parsed = [FinalIncidentReport.model_validate(item) for item in reports]
+
+    match: FinalIncidentReport | None = None
+    for report in parsed:
+        if report.incident_id == incident_id:
+            match = report
+            break
+    if match is None:
+        raise typer.BadParameter(f"Report not found for incident_id={incident_id}")
+
+    try:
+        transition_report_review(
+            match,
+            to_status=to_status,
+            reviewer=reviewer,
+            note=note,
+        )
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
+
+    reports_path.write_text(
+        json.dumps([report.model_dump(mode="json") for report in parsed], indent=2),
+        encoding="utf-8",
+    )
+    return match
 
 
 if __name__ == "__main__":

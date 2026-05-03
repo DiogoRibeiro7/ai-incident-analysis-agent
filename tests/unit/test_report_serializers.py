@@ -42,6 +42,7 @@ def test_serialize_report_as_markdown_renders_headings() -> None:
     markdown = serialize_report_as_markdown(_report())
 
     assert markdown.startswith("# Incident Report:")
+    assert "**Review Status:** `draft`" in markdown
     assert "## Root Cause Explanation" in markdown
     assert "- Rollback timeout change" in markdown
 
@@ -52,4 +53,5 @@ def test_serialize_report_as_html_renders_standalone_document() -> None:
     assert html.startswith("<!DOCTYPE html>")
     assert '<html lang="en">' in html
     assert "AI Incident Analysis" in html
+    assert "Review Status:</strong> draft" in html
     assert "Checkout latency degraded for 15 minutes." in html

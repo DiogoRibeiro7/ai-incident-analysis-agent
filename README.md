@@ -24,6 +24,7 @@ The result is a repository that demonstrates practical AI systems engineering ra
 ## What is implemented
 
 - Local ingestion for logs and metrics with validation and quality reporting
+- Optional Prometheus metrics connector using query_range ingestion into canonical MetricPoint records
 - Timeline normalization into configurable 1, 5, or 15-minute buckets
 - Deterministic anomaly detectors for latency, error rate, CPU, memory, traffic, and availability
 - Dependency-aware incident correlation
@@ -38,6 +39,7 @@ The result is a repository that demonstrates practical AI systems engineering ra
 - Fault-tolerant execution with retries, caches, and degraded-run summaries
 - Evaluation harness with static and synthetic benchmark scenarios
 - Multi-format report export: JSON, Markdown, and HTML
+- Report review lifecycle with status transitions (`draft`, `reviewed`, `approved`, `rejected`)
 
 ## Architecture
 
@@ -103,6 +105,13 @@ poetry run incident-agent run-pipeline \
   --retrieval-enabled \
   --knowledge-source-paths data/knowledge/runbooks \
   --knowledge-source-paths data/knowledge/incidents
+
+poetry run incident-agent run-pipeline \
+  --logs data/sample/incident/anomaly_logs.csv \
+  --metrics unused.csv \
+  --metrics-source prometheus \
+  --prometheus-url http://localhost:9090 \
+  --prometheus-query error_rate='sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)'
 ```
 
 Run the API locally:
@@ -170,6 +179,9 @@ poetry run incident-agent show-report --artifact-dir <run_dir> --index 0
 poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.json
 poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.md
 poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.html
+poetry run incident-agent mark-reviewed --artifact-dir <run_dir> --incident-id <id> --reviewer <name> --note "triage complete"
+poetry run incident-agent approve-report --artifact-dir <run_dir> --incident-id <id> --reviewer <name> --note "approved"
+poetry run incident-agent reject-report --artifact-dir <run_dir> --incident-id <id> --reviewer <name> --note "needs rework"
 ```
 
 Generate synthetic incident scenarios:
@@ -206,6 +218,7 @@ Core endpoints:
 Job-oriented endpoints:
 - `POST /analysis-jobs`
 - `GET /analysis-jobs/{job_id}/reports`
+- `POST /analysis-jobs/{job_id}/reports/{incident_id}/review`
 - `GET /incidents?job_id=<id>`
 - `GET /anomalies?job_id=<id>`
 
@@ -217,7 +230,12 @@ Example pipeline request:
   "metrics_path": "data/sample/incident/anomaly_metrics.csv",
   "config_path": "configs/default.yaml",
   "artifact_root": "artifacts/pipeline",
-  "bucket_size_minutes": 5
+  "bucket_size_minutes": 5,
+  "metrics_source": "prometheus",
+  "prometheus_url": "http://localhost:9090",
+  "prometheus_queries": {
+    "error_rate": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) by (service)"
+  }
 }
 ```
 

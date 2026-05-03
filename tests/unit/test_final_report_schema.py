@@ -21,6 +21,8 @@ def test_final_report_schema_validates_expected_payload() -> None:
 
     assert report.incident_id == "inc-1"
     assert report.remediation_suggestions
+    assert report.review_status == "draft"
+    assert report.review_history == []
 
 
 def test_final_report_schema_rejects_missing_required_fields() -> None:

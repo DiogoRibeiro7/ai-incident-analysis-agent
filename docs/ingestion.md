@@ -62,6 +62,25 @@ poetry run incident-agent ingest-data \
   --output-dir artifacts/ingestion/degraded
 ```
 
+## Prometheus connector
+
+Pipeline execution can pull metrics from Prometheus via `query_range`:
+
+```bash
+poetry run incident-agent run-pipeline \
+  --logs data/sample/incident/anomaly_logs.csv \
+  --metrics unused.csv \
+  --metrics-source prometheus \
+  --prometheus-url http://localhost:9090 \
+  --prometheus-query error_rate='sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)'
+```
+
+Connector defaults live in `configs/default.yaml` under:
+- `connectors.prometheus.base_url`
+- `connectors.prometheus.timeout_seconds`
+- `connectors.prometheus.step_seconds`
+- `connectors.prometheus.metric_queries`
+
 Generated files include:
 - `normalized_logs.jsonl`
 - `normalized_metrics.jsonl`

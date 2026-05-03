@@ -9,8 +9,9 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from incident_agent.schemas.anomaly import AnomalyCandidate
-from incident_agent.schemas.final_report import FinalIncidentReport
+from incident_agent.schemas.final_report import FinalIncidentReport, ReviewStatus
 from incident_agent.schemas.incident import CorrelatedIncidentCandidate
+from incident_agent.workflow.review import transition_report_review
 
 JobStatus = Literal["submitted", "completed", "failed"]
 
@@ -86,6 +87,31 @@ class AnalysisJobStore:
         """Return job record by id if present."""
 
         return self._jobs.get(job_id)
+
+    def transition_report_review(
+        self,
+        *,
+        job_id: str,
+        incident_id: str,
+        to_status: ReviewStatus,
+        reviewer: str,
+        note: str,
+    ) -> FinalIncidentReport:
+        """Transition one report review state for a job."""
+
+        existing = self._jobs[job_id]
+        for report in existing.reports:
+            if report.incident_id == incident_id:
+                updated = transition_report_review(
+                    report,
+                    to_status=to_status,
+                    reviewer=reviewer,
+                    note=note,
+                )
+                existing.updated_at = datetime.now(UTC)
+                self._jobs[job_id] = existing
+                return updated
+        raise KeyError(f"Report not found for incident_id={incident_id}")
 
     def list(self) -> list[AnalysisJobRecord]:
         """List all jobs sorted by create time."""

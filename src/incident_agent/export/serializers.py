@@ -32,6 +32,7 @@ def serialize_report_as_markdown(report: FinalIncidentReport) -> str:
 
     return (
         f"# Incident Report: {report.incident_id}\n\n"
+        f"**Review Status:** `{report.review_status}`\n\n"
         f"## Incident Summary\n{report.incident_summary}\n\n"
         f"## Root Cause Explanation\n{report.root_cause_explanation}\n\n"
         f"## Executive Summary\n{report.executive_summary}\n\n"
@@ -147,6 +148,8 @@ def serialize_report_as_html(report: FinalIncidentReport) -> str:
         '      <div class="eyebrow">AI Incident Analysis</div>\n'
         f"      <h1>{html.escape(report.incident_id)}</h1>\n"
         f'      <p class="lede">{html.escape(report.executive_summary)}</p>\n'
+        "      <p class=\"lede\"><strong>Review Status:</strong> "
+        f"{html.escape(report.review_status)}</p>\n"
         '      <div class="grid">\n'
         f"{_html_card('Incident Summary', report.incident_summary)}\n"
         f"{_html_card('Root Cause Explanation', report.root_cause_explanation)}\n"

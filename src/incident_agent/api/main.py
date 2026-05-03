@@ -21,7 +21,7 @@ from incident_agent.core.settings import load_observability_config, load_setting
 from incident_agent.llm.factory import create_provider, load_llm_config
 from incident_agent.schemas.anomaly import AnomalyCandidate
 from incident_agent.schemas.events import LogEvent, MetricPoint
-from incident_agent.schemas.final_report import FinalIncidentReport
+from incident_agent.schemas.final_report import FinalIncidentReport, ReviewStatus
 from incident_agent.schemas.incident import CorrelatedIncidentCandidate
 from incident_agent.schemas.pipeline import PipelineRunResult
 from incident_agent.schemas.report import IncidentReport
@@ -90,6 +90,10 @@ class PipelineAnalyzeRequest(BaseModel):
     bucket_size_minutes: int | None = None
     retrieval_enabled: bool | None = None
     knowledge_source_paths: list[str] | None = None
+    metrics_source: str = "file"
+    prometheus_url: str | None = None
+    prometheus_step_seconds: int | None = None
+    prometheus_queries: dict[str, str] | None = None
 
 
 class ConfigInspectionResponse(BaseModel):
@@ -109,6 +113,10 @@ class AnalysisJobSubmitRequest(BaseModel):
     bucket_size_minutes: int | None = None
     retrieval_enabled: bool | None = None
     knowledge_source_paths: list[str] | None = None
+    metrics_source: str = "file"
+    prometheus_url: str | None = None
+    prometheus_step_seconds: int | None = None
+    prometheus_queries: dict[str, str] | None = None
 
 
 class AnalysisJobStatusResponse(BaseModel):
@@ -128,6 +136,21 @@ class AnalysisJobReportsResponse(BaseModel):
 
     job_id: str
     reports: list[FinalIncidentReport] = Field(default_factory=list)
+
+
+class ReportReviewTransitionRequest(BaseModel):
+    """Request payload for report review transitions."""
+
+    to_status: ReviewStatus
+    reviewer: str = Field(min_length=1)
+    note: str = Field(min_length=1)
+
+
+class ReportReviewTransitionResponse(BaseModel):
+    """Response payload after report review transition."""
+
+    job_id: str
+    report: FinalIncidentReport
 
 
 class IncidentListResponse(BaseModel):
@@ -254,6 +277,10 @@ def analyze_pipeline(request: PipelineAnalyzeRequest) -> PipelineRunResult:
             bucket_size_minutes=request.bucket_size_minutes,
             retrieval_enabled=request.retrieval_enabled,
             knowledge_source_paths=request.knowledge_source_paths,
+            metrics_source=request.metrics_source,
+            prometheus_url=request.prometheus_url,
+            prometheus_step_seconds=request.prometheus_step_seconds,
+            prometheus_queries=request.prometheus_queries,
         )
     except Exception as error:
         raise HTTPException(
@@ -284,6 +311,10 @@ def submit_analysis_job(
             bucket_size_minutes=request.bucket_size_minutes,
             retrieval_enabled=request.retrieval_enabled,
             knowledge_source_paths=request.knowledge_source_paths,
+            metrics_source=request.metrics_source,
+            prometheus_url=request.prometheus_url,
+            prometheus_step_seconds=request.prometheus_step_seconds,
+            prometheus_queries=request.prometheus_queries,
         )
         incidents = _load_incidents(pipeline_result.artifact_dir)
         anomalies = _load_anomalies(pipeline_result.artifact_dir)
@@ -320,6 +351,41 @@ def get_job_reports(
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
     return AnalysisJobReportsResponse(job_id=job_id, reports=job.reports)
+
+
+@app.post(
+    "/analysis-jobs/{job_id}/reports/{incident_id}/review",
+    response_model=ReportReviewTransitionResponse,
+    summary="Transition review status for one report",
+    responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
+)
+def transition_job_report_review(
+    job_id: str,
+    incident_id: str,
+    request: ReportReviewTransitionRequest,
+    job_store: Annotated[AnalysisJobStore, Depends(get_job_store)],
+) -> ReportReviewTransitionResponse:
+    """Transition report lifecycle status and persist review metadata."""
+
+    job = job_store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    try:
+        report = job_store.transition_report_review(
+            job_id=job_id,
+            incident_id=incident_id,
+            to_status=request.to_status,
+            reviewer=request.reviewer,
+            note=request.note,
+        )
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Report not found for incident_id={incident_id}",
+        ) from None
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return ReportReviewTransitionResponse(job_id=job_id, report=report)
 
 
 @app.get(

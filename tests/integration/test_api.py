@@ -86,6 +86,64 @@ def test_submit_job_and_retrieve_outputs(tmp_path: Path) -> None:
     assert anomalies_response.json()["anomalies"]
 
 
+def test_report_review_transitions_for_job(tmp_path: Path) -> None:
+    client = _client()
+    submit = client.post(
+        "/analysis-jobs",
+        json={
+            "logs_path": "data/sample/incident/anomaly_logs.csv",
+            "metrics_path": "data/sample/incident/anomaly_metrics.csv",
+            "artifact_root": str(tmp_path),
+            "bucket_size_minutes": 5,
+        },
+    )
+    assert submit.status_code == 200
+    job_id = submit.json()["job_id"]
+
+    reports_response = client.get(f"/analysis-jobs/{job_id}/reports")
+    incident_id = reports_response.json()["reports"][0]["incident_id"]
+
+    reviewed = client.post(
+        f"/analysis-jobs/{job_id}/reports/{incident_id}/review",
+        json={"to_status": "reviewed", "reviewer": "alice", "note": "looks consistent"},
+    )
+    assert reviewed.status_code == 200
+    assert reviewed.json()["report"]["review_status"] == "reviewed"
+    assert len(reviewed.json()["report"]["review_history"]) == 1
+
+    approved = client.post(
+        f"/analysis-jobs/{job_id}/reports/{incident_id}/review",
+        json={"to_status": "approved", "reviewer": "alice", "note": "approved for share"},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["report"]["review_status"] == "approved"
+    assert len(approved.json()["report"]["review_history"]) == 2
+
+
+def test_report_review_invalid_transition_returns_400(tmp_path: Path) -> None:
+    client = _client()
+    submit = client.post(
+        "/analysis-jobs",
+        json={
+            "logs_path": "data/sample/incident/anomaly_logs.csv",
+            "metrics_path": "data/sample/incident/anomaly_metrics.csv",
+            "artifact_root": str(tmp_path),
+            "bucket_size_minutes": 5,
+        },
+    )
+    assert submit.status_code == 200
+    job_id = submit.json()["job_id"]
+
+    reports_response = client.get(f"/analysis-jobs/{job_id}/reports")
+    incident_id = reports_response.json()["reports"][0]["incident_id"]
+    invalid = client.post(
+        f"/analysis-jobs/{job_id}/reports/{incident_id}/review",
+        json={"to_status": "approved", "reviewer": "alice", "note": "skip step"},
+    )
+    assert invalid.status_code == 400
+    assert "Invalid review transition" in invalid.json()["detail"]
+
+
 def test_job_related_endpoints_return_404_for_unknown_job() -> None:
     client = _client()
 

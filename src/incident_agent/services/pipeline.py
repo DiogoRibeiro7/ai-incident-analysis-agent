@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TypeVar, cast
 from uuid import uuid4
@@ -14,12 +14,14 @@ from incident_agent.anomaly_detection.engine import (
     detect_anomalies,
     load_anomaly_detection_config,
 )
+from incident_agent.connectors.prometheus import fetch_prometheus_metrics
 from incident_agent.core.settings import (
     GroundingConfig,
     KnowledgeConfig,
     load_grounding_config,
     load_knowledge_config,
     load_observability_config,
+    load_prometheus_config,
     load_resilience_config,
 )
 from incident_agent.correlation.engine import (
@@ -78,6 +80,10 @@ def run_pipeline_from_files(
     bucket_size_minutes: int | None = None,
     retrieval_enabled: bool | None = None,
     knowledge_source_paths: list[str] | None = None,
+    metrics_source: str = "file",
+    prometheus_url: str | None = None,
+    prometheus_step_seconds: int | None = None,
+    prometheus_queries: dict[str, str] | None = None,
 ) -> PipelineRunResult:
     """Run ingestion, normalization, anomaly detection, correlation, RCA, and reporting."""
     observability = load_observability_config(config_path)
@@ -120,6 +126,12 @@ def run_pipeline_from_files(
                 )
                 metrics = _load_metrics_with_degradation(
                     path=metric_path,
+                    source=metrics_source,
+                    logs=logs,
+                    config_path=config_path,
+                    prometheus_url=prometheus_url,
+                    prometheus_step_seconds=prometheus_step_seconds,
+                    prometheus_queries=prometheus_queries,
                     allow_missing=resilience.allow_missing_metrics,
                     warnings=warnings,
                     failure_summaries=failure_summaries,
@@ -612,10 +624,27 @@ def _load_logs_with_degradation(
 def _load_metrics_with_degradation(
     *,
     path: str,
+    source: str,
+    logs: list[LogEvent],
+    config_path: str,
+    prometheus_url: str | None,
+    prometheus_step_seconds: int | None,
+    prometheus_queries: dict[str, str] | None,
     allow_missing: bool,
     warnings: list[str],
     failure_summaries: list[PipelineFailureSummary],
 ) -> list[MetricPoint]:
+    if source == "prometheus":
+        return _load_prometheus_metrics_with_degradation(
+            logs=logs,
+            config_path=config_path,
+            prometheus_url=prometheus_url,
+            prometheus_step_seconds=prometheus_step_seconds,
+            prometheus_queries=prometheus_queries,
+            allow_missing=allow_missing,
+            warnings=warnings,
+            failure_summaries=failure_summaries,
+        )
     return cast(
         list[MetricPoint],
         _load_records_with_degradation(
@@ -626,6 +655,70 @@ def _load_metrics_with_degradation(
             failure_summaries=failure_summaries,
         ),
     )
+
+
+def _load_prometheus_metrics_with_degradation(
+    *,
+    logs: list[LogEvent],
+    config_path: str,
+    prometheus_url: str | None,
+    prometheus_step_seconds: int | None,
+    prometheus_queries: dict[str, str] | None,
+    allow_missing: bool,
+    warnings: list[str],
+    failure_summaries: list[PipelineFailureSummary],
+) -> list[MetricPoint]:
+    connector_config = load_prometheus_config(config_path)
+    if prometheus_url is not None:
+        connector_config = connector_config.model_copy(update={"base_url": prometheus_url})
+    if prometheus_step_seconds is not None:
+        connector_config = connector_config.model_copy(
+            update={"step_seconds": prometheus_step_seconds}
+        )
+    if prometheus_queries is not None:
+        connector_config = connector_config.model_copy(
+            update={"metric_queries": prometheus_queries}
+        )
+
+    start_time, end_time = _prometheus_window(logs)
+    try:
+        return fetch_prometheus_metrics(
+            config=connector_config,
+            start_time=start_time,
+            end_time=end_time,
+        )
+    except Exception as error:
+        if not allow_missing:
+            raise
+        message = (
+            "prometheus metrics fetch failed: "
+            f"{error}; continuing with available data."
+        )
+        warnings.append(message)
+        failure_summaries.append(
+            PipelineFailureSummary(stage="ingest", message=message, fatal=False)
+        )
+        log_event(
+            logger,
+            level=logging.WARNING,
+            event="pipeline.ingest.degraded",
+            message=message,
+            dataset="metrics",
+            source="prometheus",
+        )
+        return []
+
+
+def _prometheus_window(logs: list[LogEvent]) -> tuple[datetime, datetime]:
+    if logs:
+        start_time = min(item.timestamp for item in logs).astimezone(UTC)
+        end_time = max(item.timestamp for item in logs).astimezone(UTC)
+        if end_time <= start_time:
+            end_time = start_time
+        return start_time, end_time
+
+    end_time = datetime.now(UTC)
+    return end_time - timedelta(minutes=30), end_time
 
 
 def _load_records_with_degradation(

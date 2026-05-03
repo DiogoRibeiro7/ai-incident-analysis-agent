@@ -61,6 +61,16 @@ class GroundingConfig(BaseModel):
     minimum_support_overlap: float = 0.34
 
 
+class PrometheusConfig(BaseModel):
+    """Prometheus connector configuration."""
+
+    enabled: bool = False
+    base_url: str = "http://localhost:9090"
+    timeout_seconds: float = 10.0
+    step_seconds: int = 60
+    metric_queries: dict[str, str] = Field(default_factory=dict)
+
+
 def load_settings_from_yaml(path: Path) -> dict[str, Any]:
     """Load settings from a YAML file.
 
@@ -113,3 +123,16 @@ def load_grounding_config(path: str | Path = "configs/default.yaml") -> Groundin
     if not isinstance(section, dict):
         raise ValueError("The 'grounding' section must be a mapping.")
     return GroundingConfig.model_validate(section)
+
+
+def load_prometheus_config(path: str | Path = "configs/default.yaml") -> PrometheusConfig:
+    """Load Prometheus connector config from YAML."""
+
+    loaded = load_settings_from_yaml(Path(path))
+    connectors = loaded.get("connectors", {})
+    if not isinstance(connectors, dict):
+        raise ValueError("The 'connectors' section must be a mapping.")
+    section = connectors.get("prometheus", {})
+    if not isinstance(section, dict):
+        raise ValueError("The 'connectors.prometheus' section must be a mapping.")
+    return PrometheusConfig.model_validate(section)

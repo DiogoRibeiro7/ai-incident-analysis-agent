@@ -52,6 +52,10 @@ Request fields:
 - `bucket_size_minutes` (optional)
 - `retrieval_enabled` (optional)
 - `knowledge_source_paths` (optional)
+- `metrics_source` (optional: `file` or `prometheus`)
+- `prometheus_url` (optional)
+- `prometheus_step_seconds` (optional)
+- `prometheus_queries` (optional)
 
 ## Artifact structure
 
@@ -63,6 +67,10 @@ For each run (`<artifact_root>/<run_id>/`):
 - `grounding/grounding_summary.json`
 - `reports/final_reports.json`
 - `run_summary.json`
+
+Each final report now includes:
+- `review_status`: `draft`, `reviewed`, `approved`, or `rejected`
+- `review_history`: reviewer/name/note/timestamp audit entries per transition
 
 ## Report export formats
 
@@ -77,6 +85,11 @@ Example:
 poetry run incident-agent export-report \
   --artifact-dir artifacts/pipeline/<run_id> \
   --output-path report.html
+poetry run incident-agent mark-reviewed \
+  --artifact-dir artifacts/pipeline/<run_id> \
+  --incident-id <incident_id> \
+  --reviewer <reviewer> \
+  --note "triage complete"
 ```
 
 A polished sample HTML export is included at `docs/sample_incident_report.html`.
@@ -124,3 +137,7 @@ Relevant config keys in `configs/default.yaml`:
 - `grounding.enabled`
 - `grounding.policy` (`warn` or `fail`)
 - `grounding.minimum_support_overlap`
+- `connectors.prometheus.base_url`
+- `connectors.prometheus.timeout_seconds`
+- `connectors.prometheus.step_seconds`
+- `connectors.prometheus.metric_queries`

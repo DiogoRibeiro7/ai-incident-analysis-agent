@@ -308,6 +308,74 @@ def test_show_report_fails_cleanly_when_report_file_is_missing(tmp_path: Path) -
     assert result.exit_code != 0
 
 
+def test_review_commands_persist_status_and_history(tmp_path: Path) -> None:
+    run_dir = _prepare_pipeline_artifacts(tmp_path)
+    reports_path = run_dir / "reports" / "final_reports.json"
+    reports = json.loads(reports_path.read_text(encoding="utf-8"))
+    incident_id = reports[0]["incident_id"]
+    runner = CliRunner()
+
+    reviewed = runner.invoke(
+        app,
+        [
+            "mark-reviewed",
+            "--artifact-dir",
+            str(run_dir),
+            "--incident-id",
+            incident_id,
+            "--reviewer",
+            "alice",
+            "--note",
+            "triage validated",
+        ],
+    )
+    approved = runner.invoke(
+        app,
+        [
+            "approve-report",
+            "--artifact-dir",
+            str(run_dir),
+            "--incident-id",
+            incident_id,
+            "--reviewer",
+            "alice",
+            "--note",
+            "approved",
+        ],
+    )
+
+    assert reviewed.exit_code == 0
+    assert approved.exit_code == 0
+    updated = json.loads(reports_path.read_text(encoding="utf-8"))[0]
+    assert updated["review_status"] == "approved"
+    assert len(updated["review_history"]) == 2
+
+
+def test_approve_report_fails_without_reviewed_status(tmp_path: Path) -> None:
+    run_dir = _prepare_pipeline_artifacts(tmp_path)
+    reports_path = run_dir / "reports" / "final_reports.json"
+    reports = json.loads(reports_path.read_text(encoding="utf-8"))
+    incident_id = reports[0]["incident_id"]
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "approve-report",
+            "--artifact-dir",
+            str(run_dir),
+            "--incident-id",
+            incident_id,
+            "--reviewer",
+            "alice",
+            "--note",
+            "skip review",
+        ],
+    )
+
+    assert result.exit_code != 0
+
+
 def _prepare_pipeline_artifacts(tmp_path: Path) -> Path:
     runner = CliRunner()
     artifact_root = tmp_path / "pipeline-artifacts"

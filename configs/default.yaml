@@ -22,6 +22,15 @@ grounding:
   enabled: true
   policy: warn
   minimum_support_overlap: 0.34
+connectors:
+  prometheus:
+    enabled: false
+    base_url: http://localhost:9090
+    timeout_seconds: 10.0
+    step_seconds: 60
+    metric_queries:
+      request_latency_ms: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service))
+      error_rate: sum(rate(http_requests_total{status=~\"5..\"}[5m])) by (service)
 llm:
   provider: mock
   report_model: gpt-4.1-mini

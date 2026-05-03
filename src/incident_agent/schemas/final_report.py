@@ -2,7 +2,22 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+ReviewStatus = Literal["draft", "reviewed", "approved", "rejected"]
+
+
+class ReportReviewEntry(BaseModel):
+    """Audit entry for one report review transition."""
+
+    from_status: ReviewStatus
+    to_status: ReviewStatus
+    reviewer: str
+    note: str
+    reviewed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class FinalIncidentReport(BaseModel):
@@ -18,3 +33,5 @@ class FinalIncidentReport(BaseModel):
     inferences: list[str] = Field(default_factory=list)
     uncertainties: list[str] = Field(default_factory=list)
     citations: list[str] = Field(default_factory=list)
+    review_status: ReviewStatus = "draft"
+    review_history: list[ReportReviewEntry] = Field(default_factory=list)

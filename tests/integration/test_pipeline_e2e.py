@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from incident_agent.services.pipeline import run_pipeline_from_files
@@ -217,6 +218,64 @@ def test_run_pipeline_fail_policy_drops_failed_reports(tmp_path: Path) -> None:
 
     assert result.final_report_count == 0
     assert any(item.stage == "grounding_validation" for item in result.failure_summaries)
+
+
+def test_run_pipeline_from_prometheus_metrics_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import UTC, datetime
+
+    from incident_agent.schemas.events import MetricPoint
+
+    def _fake_fetch(**_kwargs: object) -> list[MetricPoint]:
+        return [
+            MetricPoint(
+                timestamp=datetime(2026, 3, 20, 11, 15, tzinfo=UTC),
+                service="checkout-service",
+                metric_name="error_rate",
+                value=0.24,
+            ),
+            MetricPoint(
+                timestamp=datetime(2026, 3, 20, 11, 20, tzinfo=UTC),
+                service="checkout-service",
+                metric_name="request_latency_ms",
+                value=1200.0,
+            ),
+        ]
+
+    monkeypatch.setattr("incident_agent.services.pipeline.fetch_prometheus_metrics", _fake_fetch)
+    config_path = _write_config(
+        tmp_path,
+        overrides={
+            "resilience": {
+                "enable_intermediate_cache": False,
+                "llm_cache_dir": str(tmp_path / "llm-cache"),
+                "intermediate_cache_dir": str(tmp_path / "pipeline-cache"),
+                "allow_missing_metrics": True,
+                "allow_missing_logs": True,
+            },
+            "connectors": {
+                "prometheus": {
+                    "enabled": True,
+                    "base_url": "http://example-prometheus:9090",
+                    "metric_queries": {"error_rate": "up", "request_latency_ms": "up"},
+                }
+            },
+        },
+    )
+
+    result = run_pipeline_from_files(
+        log_path="data/sample/incident/anomaly_logs.csv",
+        metric_path="unused.csv",
+        config_path=str(config_path),
+        artifact_root=str(tmp_path / "runs"),
+        bucket_size_minutes=5,
+        metrics_source="prometheus",
+    )
+
+    assert result.normalized_event_count >= 6
+    assert result.failure_summaries == []
 
 
 def _write_config(tmp_path: Path, overrides: dict[str, object]) -> Path:
