@@ -38,6 +38,7 @@ The result is a repository that demonstrates practical AI systems engineering ra
 - JSON observability logging with run/request correlation
 - Fault-tolerant execution with retries, caches, and degraded-run summaries
 - Evaluation harness with static and synthetic benchmark scenarios
+- Regression eval gate with golden baseline comparison artifacts
 - Multi-format report export: JSON, Markdown, and HTML
 - Report review lifecycle with status transitions (`draft`, `reviewed`, `approved`, `rejected`)
 
@@ -199,6 +200,10 @@ Run the evaluation harness:
 poetry run incident-agent run-eval \
   --benchmark-path eval/benchmarks/scenarios.json \
   --artifact-root artifacts/eval
+poetry run incident-agent compare-eval \
+  --baseline-summary-path eval/golden/baseline_summary.json \
+  --candidate-summary-path artifacts/eval/<run_id>/summary.json \
+  --output-dir artifacts/eval/compare
 ```
 
 Run the recruiter demo path:

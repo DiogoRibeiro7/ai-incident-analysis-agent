@@ -1,0 +1,9 @@
+{
+  "required_non_empty_fields": [
+    "incident_summary",
+    "root_cause_explanation",
+    "executive_summary",
+    "engineering_handoff"
+  ],
+  "minimum_report_completeness": 1.0
+}

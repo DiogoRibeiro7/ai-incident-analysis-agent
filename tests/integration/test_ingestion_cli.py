@@ -415,3 +415,66 @@ def test_run_eval_command_outputs_summary(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "records" in result.stdout
     assert "summaries" in result.stdout
+
+
+def test_compare_eval_command_fails_on_regression(tmp_path: Path) -> None:
+    baseline_path = tmp_path / "baseline_summary.json"
+    candidate_path = tmp_path / "candidate_summary.json"
+    output_dir = tmp_path / "eval-compare"
+    baseline_path.write_text(
+        json.dumps(
+            [
+                {
+                    "mode": "mock-llm",
+                    "runs": 1,
+                    "success_rate": 1.0,
+                    "root_cause_correctness": 0.6,
+                    "impacted_service_correctness": 0.5,
+                    "factual_grounding": 1.0,
+                    "hallucination_rate": 0.0,
+                    "report_completeness": 1.0,
+                    "latency_seconds": 0.1,
+                    "average_token_usage": 0.0,
+                    "total_estimated_cost_usd": 0.0,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    candidate_path.write_text(
+        json.dumps(
+            [
+                {
+                    "mode": "mock-llm",
+                    "runs": 1,
+                    "success_rate": 1.0,
+                    "root_cause_correctness": 0.5,
+                    "impacted_service_correctness": 0.5,
+                    "factual_grounding": 1.0,
+                    "hallucination_rate": 0.0,
+                    "report_completeness": 1.0,
+                    "latency_seconds": 0.1,
+                    "average_token_usage": 0.0,
+                    "total_estimated_cost_usd": 0.0,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "compare-eval",
+            "--baseline-summary-path",
+            str(baseline_path),
+            "--candidate-summary-path",
+            str(candidate_path),
+            "--output-dir",
+            str(output_dir),
+        ],
+    )
+    assert result.exit_code == 1
+    assert (output_dir / "eval_comparison.json").exists()
+    assert (output_dir / "eval_comparison.md").exists()

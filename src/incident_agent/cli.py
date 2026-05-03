@@ -12,11 +12,16 @@ from rich.console import Console
 from rich.table import Table
 
 from incident_agent.core.settings import load_settings_from_yaml
-from incident_agent.eval.runner import run_evaluation
+from incident_agent.eval.runner import (
+    compare_evaluation_summaries,
+    run_evaluation,
+    write_comparison_artifacts,
+)
 from incident_agent.export.serializers import ExportFormat, serialize_report
 from incident_agent.ingestion.logs import ingest_logs
 from incident_agent.ingestion.metrics import ingest_metrics
 from incident_agent.schemas.eval import (
+    EvaluationRegressionThresholds,
     SyntheticScenarioGeneratorConfig,
     SyntheticScenarioType,
 )
@@ -518,6 +523,53 @@ def run_eval_command(
         include_real_llm=include_real_llm,
     )
     console.print_json(json.dumps(result.model_dump(mode="json")))
+
+
+@app.command("compare-eval")
+def compare_eval_command(
+    baseline_summary_path: Annotated[
+        str, typer.Option(help="Path to baseline summary.json artifact.")
+    ],
+    candidate_summary_path: Annotated[
+        str, typer.Option(help="Path to candidate summary.json artifact.")
+    ],
+    output_dir: Annotated[
+        str, typer.Option(help="Directory for comparison artifacts.")
+    ] = "artifacts/eval/compare",
+    root_cause_drop_max: Annotated[
+        float, typer.Option(help="Allowed root-cause correctness drop.")
+    ] = 0.02,
+    impacted_drop_max: Annotated[
+        float, typer.Option(help="Allowed impacted-service correctness drop.")
+    ] = 0.02,
+    grounding_drop_max: Annotated[
+        float, typer.Option(help="Allowed factual grounding drop.")
+    ] = 0.02,
+    completeness_drop_max: Annotated[
+        float, typer.Option(help="Allowed report completeness drop.")
+    ] = 0.02,
+    hallucination_increase_max: Annotated[
+        float, typer.Option(help="Allowed hallucination rate increase.")
+    ] = 0.05,
+) -> None:
+    """Compare baseline vs candidate eval summaries and fail on regressions."""
+
+    thresholds = EvaluationRegressionThresholds(
+        root_cause_correctness_drop_max=root_cause_drop_max,
+        impacted_service_correctness_drop_max=impacted_drop_max,
+        factual_grounding_drop_max=grounding_drop_max,
+        report_completeness_drop_max=completeness_drop_max,
+        hallucination_rate_increase_max=hallucination_increase_max,
+    )
+    comparison = compare_evaluation_summaries(
+        baseline_summary_path=baseline_summary_path,
+        candidate_summary_path=candidate_summary_path,
+        thresholds=thresholds,
+    )
+    write_comparison_artifacts(output_dir=output_dir, comparison=comparison)
+    console.print_json(json.dumps(comparison.model_dump(mode="json")))
+    if not comparison.passed:
+        raise typer.Exit(code=1)
 
 
 @app.command("generate-scenario")

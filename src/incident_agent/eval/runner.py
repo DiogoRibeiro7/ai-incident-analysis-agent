@@ -14,7 +14,10 @@ from incident_agent.core.settings import load_settings_from_yaml
 from incident_agent.eval.benchmarks import load_benchmark_scenarios
 from incident_agent.schemas.eval import (
     BenchmarkScenario,
+    EvaluationComparisonFinding,
+    EvaluationComparisonResult,
     EvaluationMetrics,
+    EvaluationRegressionThresholds,
     EvaluationResult,
     EvaluationRunRecord,
     EvaluationSummary,
@@ -470,3 +473,179 @@ def _summary_markdown(result: EvaluationResult) -> str:
             f"{avg_tokens} | {total_cost} |"
         )
     return header + "\n".join(lines) + "\n"
+
+
+def compare_evaluation_summaries(
+    *,
+    baseline_summary_path: str,
+    candidate_summary_path: str,
+    thresholds: EvaluationRegressionThresholds | None = None,
+) -> EvaluationComparisonResult:
+    """Compare evaluation summary artifacts and detect quality regressions."""
+
+    limit = thresholds or EvaluationRegressionThresholds()
+    baseline = _load_summary_rows(baseline_summary_path)
+    candidate = _load_summary_rows(candidate_summary_path)
+    baseline_by_mode = {item.mode: item for item in baseline}
+    candidate_by_mode = {item.mode: item for item in candidate}
+
+    findings: list[EvaluationComparisonFinding] = []
+    for mode, baseline_summary in baseline_by_mode.items():
+        if mode not in candidate_by_mode:
+            findings.append(
+                EvaluationComparisonFinding(
+                    mode=mode,
+                    metric="mode_present",
+                    baseline_value=1.0,
+                    candidate_value=0.0,
+                    delta=-1.0,
+                    threshold=0.0,
+                )
+            )
+            continue
+        candidate_summary = candidate_by_mode[mode]
+        findings.extend(
+            _metric_regressions_for_mode(
+                mode=mode,
+                baseline=baseline_summary,
+                candidate=candidate_summary,
+                thresholds=limit,
+            )
+        )
+
+    return EvaluationComparisonResult(
+        passed=not findings,
+        baseline_summary_path=baseline_summary_path,
+        candidate_summary_path=candidate_summary_path,
+        findings=findings,
+    )
+
+
+def write_comparison_artifacts(
+    *,
+    output_dir: str,
+    comparison: EvaluationComparisonResult,
+) -> None:
+    """Persist machine-readable and markdown comparison artifacts."""
+
+    target = Path(output_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    (target / "eval_comparison.json").write_text(
+        comparison.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+    (target / "eval_comparison.md").write_text(
+        _comparison_markdown(comparison),
+        encoding="utf-8",
+    )
+
+
+def _load_summary_rows(path: str) -> list[EvaluationSummary]:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        raise ValueError(f"Evaluation summary must be a list: {path}")
+    return [EvaluationSummary.model_validate(item) for item in payload]
+
+
+def _metric_regressions_for_mode(
+    *,
+    mode: str,
+    baseline: EvaluationSummary,
+    candidate: EvaluationSummary,
+    thresholds: EvaluationRegressionThresholds,
+) -> list[EvaluationComparisonFinding]:
+    findings: list[EvaluationComparisonFinding] = []
+    checks = [
+        (
+            "success_rate",
+            baseline.success_rate,
+            candidate.success_rate,
+            thresholds.success_rate_drop_max,
+            "drop",
+        ),
+        (
+            "root_cause_correctness",
+            baseline.root_cause_correctness,
+            candidate.root_cause_correctness,
+            thresholds.root_cause_correctness_drop_max,
+            "drop",
+        ),
+        (
+            "impacted_service_correctness",
+            baseline.impacted_service_correctness,
+            candidate.impacted_service_correctness,
+            thresholds.impacted_service_correctness_drop_max,
+            "drop",
+        ),
+        (
+            "factual_grounding",
+            baseline.factual_grounding,
+            candidate.factual_grounding,
+            thresholds.factual_grounding_drop_max,
+            "drop",
+        ),
+        (
+            "report_completeness",
+            baseline.report_completeness,
+            candidate.report_completeness,
+            thresholds.report_completeness_drop_max,
+            "drop",
+        ),
+        (
+            "hallucination_rate",
+            baseline.hallucination_rate,
+            candidate.hallucination_rate,
+            thresholds.hallucination_rate_increase_max,
+            "increase",
+        ),
+    ]
+
+    for metric, base_value, candidate_value, threshold, kind in checks:
+        delta = round(candidate_value - base_value, 4)
+        if kind == "drop" and delta < -threshold:
+            findings.append(
+                EvaluationComparisonFinding(
+                    mode=mode,
+                    metric=metric,
+                    baseline_value=base_value,
+                    candidate_value=candidate_value,
+                    delta=delta,
+                    threshold=threshold,
+                )
+            )
+        if kind == "increase" and delta > threshold:
+            findings.append(
+                EvaluationComparisonFinding(
+                    mode=mode,
+                    metric=metric,
+                    baseline_value=base_value,
+                    candidate_value=candidate_value,
+                    delta=delta,
+                    threshold=threshold,
+                )
+            )
+    return findings
+
+
+def _comparison_markdown(comparison: EvaluationComparisonResult) -> str:
+    header = (
+        "# Evaluation Regression Comparison\n\n"
+        f"Passed: `{comparison.passed}`\n\n"
+        f"- Baseline: `{comparison.baseline_summary_path}`\n"
+        f"- Candidate: `{comparison.candidate_summary_path}`\n\n"
+    )
+    if not comparison.findings:
+        return header + "No regressions detected.\n"
+
+    table_header = (
+        "| Mode | Metric | Baseline | Candidate | Delta | Threshold |\n"
+        "|---|---|---:|---:|---:|---:|\n"
+    )
+    rows = [
+        (
+            f"| {item.mode} | {item.metric} | {item.baseline_value:.4f} | "
+            f"{item.candidate_value:.4f} | {item.delta:.4f} | {item.threshold:.4f} |"
+        )
+        for item in comparison.findings
+    ]
+    return header + table_header + "\n".join(rows) + "\n"

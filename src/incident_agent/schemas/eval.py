@@ -95,3 +95,34 @@ class EvaluationResult(BaseModel):
     artifact_dir: str
     records: list[EvaluationRunRecord] = Field(default_factory=list)
     summaries: list[EvaluationSummary] = Field(default_factory=list)
+
+
+class EvaluationRegressionThresholds(BaseModel):
+    """Allowed regression thresholds for candidate vs baseline summaries."""
+
+    success_rate_drop_max: float = 0.0
+    root_cause_correctness_drop_max: float = 0.02
+    impacted_service_correctness_drop_max: float = 0.02
+    factual_grounding_drop_max: float = 0.02
+    report_completeness_drop_max: float = 0.02
+    hallucination_rate_increase_max: float = 0.05
+
+
+class EvaluationComparisonFinding(BaseModel):
+    """One regression finding for one mode/metric."""
+
+    mode: str
+    metric: str
+    baseline_value: float
+    candidate_value: float
+    delta: float
+    threshold: float
+
+
+class EvaluationComparisonResult(BaseModel):
+    """Comparison output for baseline vs candidate evaluation summaries."""
+
+    passed: bool
+    baseline_summary_path: str
+    candidate_summary_path: str
+    findings: list[EvaluationComparisonFinding] = Field(default_factory=list)

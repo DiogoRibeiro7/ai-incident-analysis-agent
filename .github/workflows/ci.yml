@@ -55,3 +55,34 @@ jobs:
           name: coverage-xml
           path: coverage.xml
           if-no-files-found: error
+
+  eval-regression:
+    name: eval-regression-gate
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Install dependencies
+        run: poetry install --no-interaction
+      - name: Run evaluation candidate
+        run: poetry run incident-agent run-eval --benchmark-path eval/benchmarks/scenarios.json --artifact-root artifacts/eval-ci
+      - name: Compare candidate vs golden baseline
+        run: |
+          CANDIDATE_SUMMARY=$(ls -1dt artifacts/eval-ci/* | head -n1)/summary.json
+          poetry run incident-agent compare-eval \
+            --baseline-summary-path eval/golden/baseline_summary.json \
+            --candidate-summary-path "$CANDIDATE_SUMMARY" \
+            --output-dir artifacts/eval-ci/compare
+      - name: Upload eval regression artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-regression-artifacts
+          path: artifacts/eval-ci/compare
+          if-no-files-found: error

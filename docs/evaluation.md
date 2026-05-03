@@ -14,6 +14,8 @@ Measure incident analysis quality across benchmark scenarios and compare output 
 - Schemas: `src/incident_agent/schemas/eval.py`
 - Benchmarks: `eval/benchmarks/scenarios.json`
 - Synthetic benchmarks: `eval/benchmarks/synthetic_scenarios.json`
+- Golden baseline summary: `eval/golden/baseline_summary.json`
+- Golden report property fixture: `eval/golden/report_properties.json`
 
 ## Metrics
 
@@ -53,6 +55,23 @@ poetry run incident-agent run-eval \
 ```
 
 `real-llm` requires `llm.provider` support and credentials in config/env.
+
+## Regression Comparison
+
+Compare a candidate eval run against the checked-in baseline:
+
+```bash
+poetry run incident-agent compare-eval \
+  --baseline-summary-path eval/golden/baseline_summary.json \
+  --candidate-summary-path artifacts/eval/<run_id>/summary.json \
+  --output-dir artifacts/eval/compare
+```
+
+Outputs:
+- `eval_comparison.json`
+- `eval_comparison.md`
+
+The command exits with code `1` when configured regression thresholds are exceeded.
 
 ## Synthetic generation
 
