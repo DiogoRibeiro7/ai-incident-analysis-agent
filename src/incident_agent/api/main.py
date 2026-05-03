@@ -429,13 +429,17 @@ def submit_analysis_job(
 def get_job_reports(
     job_id: str,
     job_store: Annotated[AnalysisJobStore, Depends(get_job_store)],
+    review_status: Annotated[ReviewStatus | None, Query()] = None,
 ) -> AnalysisJobReportsResponse:
     """Retrieve generated final reports for a job."""
 
     job = job_store.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
-    return AnalysisJobReportsResponse(job_id=job_id, reports=job.reports)
+    reports = job.reports
+    if review_status is not None:
+        reports = [report for report in reports if report.review_status == review_status]
+    return AnalysisJobReportsResponse(job_id=job_id, reports=reports)
 
 
 @app.post(

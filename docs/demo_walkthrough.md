@@ -61,3 +61,8 @@ This scenario is stable and designed to surface:
 3. Inspect `artifacts/incidents/incidents.json` to see the correlated incident candidate.
 4. Inspect `artifacts/rca/rca_hypotheses.json` to review the heuristic RCA output.
 5. Inspect `artifacts/run_summary.json` for run metadata and warnings.
+6. Optionally list persisted reports by review status:
+
+```bash
+poetry run incident-agent list-reports --artifact-dir artifacts/demo/portfolio-demo --review-status draft
+```

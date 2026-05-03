@@ -377,6 +377,45 @@ def show_report(
     console.print_json(json.dumps(report))
 
 
+@app.command("list-reports")
+def list_reports(
+    review_status: Annotated[
+        ReviewStatus | None,
+        typer.Option(
+            help="Optional review status filter.",
+            click_type=click.Choice(
+                ["draft", "reviewed", "approved", "rejected"],
+                case_sensitive=True,
+            ),
+        ),
+    ] = None,
+    artifact_dir: Annotated[
+        str | None,
+        typer.Option(help="Full run artifact directory path."),
+    ] = None,
+    artifact_root: Annotated[
+        str, typer.Option(help="Root artifact directory (used with --latest).")
+    ] = "artifacts/pipeline",
+    latest: Annotated[
+        bool, typer.Option(help="Use latest run directory under artifact root.")
+    ] = True,
+) -> None:
+    """List final reports with optional review status filtering."""
+
+    run_dir = _resolve_run_directory(
+        artifact_dir=artifact_dir,
+        artifact_root=artifact_root,
+        latest=latest,
+    )
+    reports_path = run_dir / "reports" / "final_reports.json"
+    reports = _load_reports(reports_path)
+    parsed = [FinalIncidentReport.model_validate(item) for item in reports]
+    if review_status is not None:
+        parsed = [report for report in parsed if report.review_status == review_status]
+    serialised = [report.model_dump(mode="json") for report in parsed]
+    console.print_json(json.dumps(serialised))
+
+
 @app.command("export-report")
 def export_report(
     output_path: Annotated[str, typer.Option(help="Output file path (.json, .md, or .html).")],

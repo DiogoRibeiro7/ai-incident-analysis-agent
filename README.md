@@ -186,6 +186,8 @@ Operator commands:
 ```bash
 poetry run incident-agent print-config
 poetry run incident-agent list-incidents --artifact-dir <run_dir>
+poetry run incident-agent list-reports --artifact-dir <run_dir>
+poetry run incident-agent list-reports --artifact-dir <run_dir> --review-status approved
 poetry run incident-agent show-report --artifact-dir <run_dir> --index 0
 poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.json
 poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.md
@@ -234,6 +236,7 @@ Core endpoints:
 Job-oriented endpoints:
 - `POST /analysis-jobs`
 - `GET /analysis-jobs/{job_id}/reports`
+- `GET /analysis-jobs/{job_id}/reports?review_status=approved`
 - `POST /analysis-jobs/{job_id}/reports/{incident_id}/review`
 - `POST /analysis-jobs/{job_id}/reports/{incident_id}/export-webhook`
 - `GET /incidents?job_id=<id>`

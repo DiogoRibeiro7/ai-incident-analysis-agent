@@ -262,6 +262,57 @@ def test_list_incidents_and_show_report_commands(tmp_path: Path) -> None:
     assert '"incident_id"' in show_result.stdout
 
 
+def test_list_reports_command_with_review_status_filter(tmp_path: Path) -> None:
+    run_dir = _prepare_pipeline_artifacts(tmp_path)
+    reports_path = run_dir / "reports" / "final_reports.json"
+    incident_id = json.loads(reports_path.read_text(encoding="utf-8"))[0]["incident_id"]
+    runner = CliRunner()
+
+    reviewed = runner.invoke(
+        app,
+        [
+            "mark-reviewed",
+            "--artifact-dir",
+            str(run_dir),
+            "--incident-id",
+            incident_id,
+            "--reviewer",
+            "alice",
+            "--note",
+            "ready",
+        ],
+    )
+    assert reviewed.exit_code == 0
+
+    reviewed_only = runner.invoke(
+        app,
+        [
+            "list-reports",
+            "--artifact-dir",
+            str(run_dir),
+            "--review-status",
+            "reviewed",
+        ],
+    )
+    assert reviewed_only.exit_code == 0
+    reviewed_payload = json.loads(reviewed_only.stdout)
+    assert reviewed_payload
+    assert all(item["review_status"] == "reviewed" for item in reviewed_payload)
+
+    approved_only = runner.invoke(
+        app,
+        [
+            "list-reports",
+            "--artifact-dir",
+            str(run_dir),
+            "--review-status",
+            "approved",
+        ],
+    )
+    assert approved_only.exit_code == 0
+    assert json.loads(approved_only.stdout) == []
+
+
 def test_export_report_command_json_markdown_and_html(tmp_path: Path) -> None:
     run_dir = _prepare_pipeline_artifacts(tmp_path)
     runner = CliRunner()

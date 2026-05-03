@@ -136,6 +136,44 @@ def test_report_review_transitions_for_job(tmp_path: Path) -> None:
     assert len(approved.json()["report"]["review_history"]) == 2
 
 
+def test_get_reports_can_filter_by_review_status(tmp_path: Path) -> None:
+    client = _client()
+    submit = client.post(
+        "/analysis-jobs",
+        json={
+            "logs_path": "data/sample/incident/anomaly_logs.csv",
+            "metrics_path": "data/sample/incident/anomaly_metrics.csv",
+            "artifact_root": str(tmp_path),
+            "bucket_size_minutes": 5,
+        },
+    )
+    assert submit.status_code == 200
+    job_id = submit.json()["job_id"]
+
+    reports_response = client.get(f"/analysis-jobs/{job_id}/reports")
+    incident_id = reports_response.json()["reports"][0]["incident_id"]
+    client.post(
+        f"/analysis-jobs/{job_id}/reports/{incident_id}/review",
+        json={"to_status": "reviewed", "reviewer": "alice", "note": "ok"},
+    )
+
+    reviewed_only = client.get(
+        f"/analysis-jobs/{job_id}/reports",
+        params={"review_status": "reviewed"},
+    )
+    assert reviewed_only.status_code == 200
+    reviewed_reports = reviewed_only.json()["reports"]
+    assert reviewed_reports
+    assert all(item["review_status"] == "reviewed" for item in reviewed_reports)
+
+    approved_only = client.get(
+        f"/analysis-jobs/{job_id}/reports",
+        params={"review_status": "approved"},
+    )
+    assert approved_only.status_code == 200
+    assert approved_only.json()["reports"] == []
+
+
 def test_report_review_invalid_transition_returns_400(tmp_path: Path) -> None:
     client = _client()
     submit = client.post(
@@ -158,6 +196,27 @@ def test_report_review_invalid_transition_returns_400(tmp_path: Path) -> None:
     )
     assert invalid.status_code == 400
     assert "Invalid review transition" in invalid.json()["detail"]
+
+
+def test_get_reports_rejects_invalid_review_status_query(tmp_path: Path) -> None:
+    client = _client()
+    submit = client.post(
+        "/analysis-jobs",
+        json={
+            "logs_path": "data/sample/incident/anomaly_logs.csv",
+            "metrics_path": "data/sample/incident/anomaly_metrics.csv",
+            "artifact_root": str(tmp_path),
+            "bucket_size_minutes": 5,
+        },
+    )
+    assert submit.status_code == 200
+    job_id = submit.json()["job_id"]
+
+    response = client.get(
+        f"/analysis-jobs/{job_id}/reports",
+        params={"review_status": "invalid"},
+    )
+    assert response.status_code == 422
 
 
 def test_export_approved_report_to_webhook(
