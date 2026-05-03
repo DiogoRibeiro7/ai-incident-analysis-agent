@@ -41,6 +41,7 @@ The result is a repository that demonstrates practical AI systems engineering ra
 - Regression eval gate with golden baseline comparison artifacts
 - Multi-format report export: JSON, Markdown, and HTML
 - Report review lifecycle with status transitions (`draft`, `reviewed`, `approved`, `rejected`)
+- Generic webhook export for approved reports with retry and delivery audit log
 
 ## Architecture
 
@@ -183,6 +184,7 @@ poetry run incident-agent export-report --artifact-dir <run_dir> --output-path r
 poetry run incident-agent mark-reviewed --artifact-dir <run_dir> --incident-id <id> --reviewer <name> --note "triage complete"
 poetry run incident-agent approve-report --artifact-dir <run_dir> --incident-id <id> --reviewer <name> --note "approved"
 poetry run incident-agent reject-report --artifact-dir <run_dir> --incident-id <id> --reviewer <name> --note "needs rework"
+poetry run incident-agent export-approved-webhook --artifact-dir <run_dir> --incident-id <id> --destination-url https://example.test/webhook
 ```
 
 Generate synthetic incident scenarios:
@@ -224,6 +226,7 @@ Job-oriented endpoints:
 - `POST /analysis-jobs`
 - `GET /analysis-jobs/{job_id}/reports`
 - `POST /analysis-jobs/{job_id}/reports/{incident_id}/review`
+- `POST /analysis-jobs/{job_id}/reports/{incident_id}/export-webhook`
 - `GET /incidents?job_id=<id>`
 - `GET /anomalies?job_id=<id>`
 

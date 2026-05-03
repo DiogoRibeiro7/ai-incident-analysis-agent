@@ -124,3 +124,8 @@ evaluation:
   benchmark_path: eval/benchmarks/scenarios.json
   artifact_root: artifacts/eval
   include_real_llm: false
+webhook_export:
+  enabled: false
+  timeout_seconds: 10.0
+  max_retries: 2
+  retry_backoff_seconds: 1.0

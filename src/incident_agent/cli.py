@@ -11,13 +11,18 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from incident_agent.core.settings import load_settings_from_yaml
+from incident_agent.core.settings import load_settings_from_yaml, load_webhook_export_config
 from incident_agent.eval.runner import (
     compare_evaluation_summaries,
     run_evaluation,
     write_comparison_artifacts,
 )
 from incident_agent.export.serializers import ExportFormat, serialize_report
+from incident_agent.export.webhook import (
+    WebhookExportConfig,
+    WebhookExportError,
+    export_report_via_webhook,
+)
 from incident_agent.ingestion.logs import ingest_logs
 from incident_agent.ingestion.metrics import ingest_metrics
 from incident_agent.schemas.eval import (
@@ -408,6 +413,51 @@ def export_report(
         encoding="utf-8",
     )
     console.print(f"Exported report to {target}")
+
+
+@app.command("export-approved-webhook")
+def export_approved_webhook(
+    destination_url: Annotated[str, typer.Option(help="Webhook destination URL.")],
+    incident_id: Annotated[str, typer.Option(help="Incident ID to export.")],
+    artifact_dir: Annotated[
+        str | None,
+        typer.Option(help="Full run artifact directory path."),
+    ] = None,
+    artifact_root: Annotated[
+        str, typer.Option(help="Root artifact directory (used with --latest).")
+    ] = "artifacts/pipeline",
+    latest: Annotated[
+        bool, typer.Option(help="Use latest run directory under artifact root.")
+    ] = True,
+    config: Annotated[str, typer.Option(help="Path to YAML config file.")] = "configs/default.yaml",
+) -> None:
+    """Export one approved report to a generic webhook endpoint."""
+
+    run_dir = _resolve_run_directory(
+        artifact_dir=artifact_dir,
+        artifact_root=artifact_root,
+        latest=latest,
+    )
+    reports_path = run_dir / "reports" / "final_reports.json"
+    reports = _load_reports(reports_path)
+    selected = _select_report(reports, incident_id=incident_id, index=0)
+    report = FinalIncidentReport.model_validate(selected)
+    config_values = load_webhook_export_config(config)
+    webhook_config = WebhookExportConfig(
+        timeout_seconds=config_values.timeout_seconds,
+        max_retries=config_values.max_retries,
+        retry_backoff_seconds=config_values.retry_backoff_seconds,
+    )
+    try:
+        record = export_report_via_webhook(
+            report=report,
+            destination_url=destination_url,
+            audit_log_path=run_dir / "exports" / "webhook_deliveries.jsonl",
+            config=webhook_config,
+        )
+    except WebhookExportError as error:
+        raise typer.BadParameter(str(error)) from error
+    console.print_json(json.dumps(record.model_dump(mode="json")))
 
 
 @app.command("mark-reviewed")

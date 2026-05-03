@@ -71,6 +71,15 @@ class PrometheusConfig(BaseModel):
     metric_queries: dict[str, str] = Field(default_factory=dict)
 
 
+class WebhookExportConfig(BaseModel):
+    """Webhook exporter configuration."""
+
+    enabled: bool = False
+    timeout_seconds: float = 10.0
+    max_retries: int = 2
+    retry_backoff_seconds: float = 1.0
+
+
 def load_settings_from_yaml(path: Path) -> dict[str, Any]:
     """Load settings from a YAML file.
 
@@ -136,3 +145,13 @@ def load_prometheus_config(path: str | Path = "configs/default.yaml") -> Prometh
     if not isinstance(section, dict):
         raise ValueError("The 'connectors.prometheus' section must be a mapping.")
     return PrometheusConfig.model_validate(section)
+
+
+def load_webhook_export_config(path: str | Path = "configs/default.yaml") -> WebhookExportConfig:
+    """Load webhook export config from YAML."""
+
+    loaded = load_settings_from_yaml(Path(path))
+    section = loaded.get("webhook_export", {})
+    if not isinstance(section, dict):
+        raise ValueError("The 'webhook_export' section must be a mapping.")
+    return WebhookExportConfig.model_validate(section)

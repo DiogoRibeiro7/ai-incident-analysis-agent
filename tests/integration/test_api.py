@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from incident_agent.api.main import app
@@ -142,6 +144,56 @@ def test_report_review_invalid_transition_returns_400(tmp_path: Path) -> None:
     )
     assert invalid.status_code == 400
     assert "Invalid review transition" in invalid.json()["detail"]
+
+
+def test_export_approved_report_to_webhook(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class _FakeClient:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> _FakeClient:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def post(self, *_args: object, **_kwargs: object) -> httpx.Response:
+            return httpx.Response(status_code=200, json={"payload_id": "ticket-42"})
+
+    monkeypatch.setattr("incident_agent.export.webhook.httpx.Client", _FakeClient)
+
+    client = _client()
+    submit = client.post(
+        "/analysis-jobs",
+        json={
+            "logs_path": "data/sample/incident/anomaly_logs.csv",
+            "metrics_path": "data/sample/incident/anomaly_metrics.csv",
+            "artifact_root": str(tmp_path),
+            "bucket_size_minutes": 5,
+        },
+    )
+    job_id = submit.json()["job_id"]
+    reports_response = client.get(f"/analysis-jobs/{job_id}/reports")
+    incident_id = reports_response.json()["reports"][0]["incident_id"]
+    client.post(
+        f"/analysis-jobs/{job_id}/reports/{incident_id}/review",
+        json={"to_status": "reviewed", "reviewer": "alice", "note": "ok"},
+    )
+    client.post(
+        f"/analysis-jobs/{job_id}/reports/{incident_id}/review",
+        json={"to_status": "approved", "reviewer": "alice", "note": "ship"},
+    )
+
+    exported = client.post(
+        f"/analysis-jobs/{job_id}/reports/{incident_id}/export-webhook",
+        json={"destination_url": "https://example.test/webhook"},
+    )
+    assert exported.status_code == 200
+    payload = exported.json()
+    assert payload["status"] == "delivered"
+    assert payload["payload_id"] == "ticket-42"
 
 
 def test_job_related_endpoints_return_404_for_unknown_job() -> None:

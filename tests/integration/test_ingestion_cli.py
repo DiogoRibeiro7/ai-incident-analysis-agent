@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import httpx
+import pytest
 from typer.testing import CliRunner
 
 from incident_agent.cli import app
@@ -374,6 +376,73 @@ def test_approve_report_fails_without_reviewed_status(tmp_path: Path) -> None:
     )
 
     assert result.exit_code != 0
+
+
+def test_export_approved_webhook_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeClient:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> _FakeClient:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def post(self, *_args: object, **_kwargs: object) -> httpx.Response:
+            return httpx.Response(status_code=200, json={"payload_id": "hook-1"})
+
+    monkeypatch.setattr("incident_agent.export.webhook.httpx.Client", _FakeClient)
+
+    run_dir = _prepare_pipeline_artifacts(tmp_path)
+    reports_path = run_dir / "reports" / "final_reports.json"
+    incident_id = json.loads(reports_path.read_text(encoding="utf-8"))[0]["incident_id"]
+    runner = CliRunner()
+    runner.invoke(
+        app,
+        [
+            "mark-reviewed",
+            "--artifact-dir",
+            str(run_dir),
+            "--incident-id",
+            incident_id,
+            "--reviewer",
+            "alice",
+            "--note",
+            "ok",
+        ],
+    )
+    runner.invoke(
+        app,
+        [
+            "approve-report",
+            "--artifact-dir",
+            str(run_dir),
+            "--incident-id",
+            incident_id,
+            "--reviewer",
+            "alice",
+            "--note",
+            "ok",
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "export-approved-webhook",
+            "--artifact-dir",
+            str(run_dir),
+            "--incident-id",
+            incident_id,
+            "--destination-url",
+            "https://example.test/webhook",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "delivered" in result.stdout
+    audit_path = run_dir / "exports" / "webhook_deliveries.jsonl"
+    assert audit_path.exists()
 
 
 def _prepare_pipeline_artifacts(tmp_path: Path) -> Path:

@@ -71,6 +71,7 @@ For each run (`<artifact_root>/<run_id>/`):
 Each final report now includes:
 - `review_status`: `draft`, `reviewed`, `approved`, or `rejected`
 - `review_history`: reviewer/name/note/timestamp audit entries per transition
+- Approved reports can be exported to a webhook with delivery audit log at `exports/webhook_deliveries.jsonl`
 
 ## Report export formats
 

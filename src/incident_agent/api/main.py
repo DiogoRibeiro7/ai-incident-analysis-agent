@@ -17,7 +17,16 @@ from pydantic import BaseModel, Field
 from incident_agent import __version__
 from incident_agent.agents.incident_agent import IncidentAnalysisAgent
 from incident_agent.api.store import AnalysisJobRecord, AnalysisJobStore
-from incident_agent.core.settings import load_observability_config, load_settings_from_yaml
+from incident_agent.core.settings import (
+    load_observability_config,
+    load_settings_from_yaml,
+    load_webhook_export_config,
+)
+from incident_agent.export.webhook import (
+    WebhookExportConfig,
+    WebhookExportError,
+    export_report_via_webhook,
+)
 from incident_agent.llm.factory import create_provider, load_llm_config
 from incident_agent.schemas.anomaly import AnomalyCandidate
 from incident_agent.schemas.events import LogEvent, MetricPoint
@@ -163,6 +172,24 @@ class AnomalyListResponse(BaseModel):
     """Anomaly listing response."""
 
     anomalies: list[AnomalyCandidate] = Field(default_factory=list)
+
+
+class ReportWebhookExportRequest(BaseModel):
+    """Webhook export request payload."""
+
+    destination_url: str
+    config_path: str = "configs/default.yaml"
+
+
+class ReportWebhookExportResponse(BaseModel):
+    """Webhook export response payload."""
+
+    job_id: str
+    incident_id: str
+    delivery_id: str
+    status: str
+    attempts: int
+    payload_id: str | None = None
 
 
 def get_job_store(request: Request) -> AnalysisJobStore:
@@ -386,6 +413,58 @@ def transition_job_report_review(
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return ReportReviewTransitionResponse(job_id=job_id, report=report)
+
+
+@app.post(
+    "/analysis-jobs/{job_id}/reports/{incident_id}/export-webhook",
+    response_model=ReportWebhookExportResponse,
+    summary="Export approved report to generic webhook",
+    responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
+)
+def export_job_report_webhook(
+    job_id: str,
+    incident_id: str,
+    request: ReportWebhookExportRequest,
+    job_store: Annotated[AnalysisJobStore, Depends(get_job_store)],
+) -> ReportWebhookExportResponse:
+    """Export one approved report and persist webhook delivery audit."""
+
+    job = job_store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    report = next((item for item in job.reports if item.incident_id == incident_id), None)
+    if report is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Report not found for incident_id={incident_id}",
+        )
+    try:
+        settings = load_webhook_export_config(request.config_path)
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=f"Invalid webhook config: {error}") from error
+    try:
+        delivery = export_report_via_webhook(
+            report=report,
+            destination_url=request.destination_url,
+            audit_log_path=Path(job.artifact_dir or "artifacts/pipeline")
+            / "exports"
+            / "webhook_deliveries.jsonl",
+            config=WebhookExportConfig(
+                timeout_seconds=settings.timeout_seconds,
+                max_retries=settings.max_retries,
+                retry_backoff_seconds=settings.retry_backoff_seconds,
+            ),
+        )
+    except WebhookExportError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return ReportWebhookExportResponse(
+        job_id=job_id,
+        incident_id=incident_id,
+        delivery_id=delivery.delivery_id,
+        status=delivery.status,
+        attempts=delivery.attempts,
+        payload_id=delivery.payload_id,
+    )
 
 
 @app.get(
