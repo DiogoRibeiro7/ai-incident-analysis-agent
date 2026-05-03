@@ -48,3 +48,14 @@ curl -X POST http://localhost:8000/analyze-pipeline \
 - Artifacts are persisted on host at `./artifacts`.
 - Config and data are mounted read-only from `./configs` and `./data`.
 - API container exposes port `8000` by default (`API_PORT` in `.env`).
+
+## Published Container Images
+
+Release tags in GitHub (for example `v0.1.0`) trigger image publishing to GHCR:
+
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:v0.1.0`
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:0.1`
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:0`
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:sha-<commit>`
+
+Manual publishing is also available through the `container-publish` workflow dispatch.

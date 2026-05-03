@@ -139,6 +139,21 @@ curl http://localhost:8000/health
 
 Docker note: requires Docker Engine and Compose plugin installed.
 
+## Container Images
+
+Tagged releases publish container images to GitHub Container Registry:
+
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:v<major>.<minor>.<patch>`
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:<major>.<minor>`
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:<major>`
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:sha-<commit>`
+
+Example pull:
+
+```bash
+docker pull ghcr.io/diogoribeiro7/ai-incident-analysis-agent:v0.1.0
+```
+
 ## How the Pipeline Works
 
 The default pipeline command performs:
