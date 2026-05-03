@@ -651,6 +651,9 @@ def compare_eval_command(
     grounding_drop_max: Annotated[
         float, typer.Option(help="Allowed factual grounding drop.")
     ] = 0.02,
+    citation_coverage_drop_max: Annotated[
+        float, typer.Option(help="Allowed claim citation coverage drop.")
+    ] = 0.02,
     completeness_drop_max: Annotated[
         float, typer.Option(help="Allowed report completeness drop.")
     ] = 0.02,
@@ -666,6 +669,7 @@ def compare_eval_command(
         root_cause_correctness_drop_max=root_cause_drop_max,
         impacted_service_correctness_drop_max=impacted_drop_max,
         factual_grounding_drop_max=grounding_drop_max,
+        citation_coverage_drop_max=citation_coverage_drop_max,
         report_completeness_drop_max=completeness_drop_max,
         hallucination_rate_increase_max=hallucination_increase_max,
     )

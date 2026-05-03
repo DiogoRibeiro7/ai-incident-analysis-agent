@@ -22,6 +22,7 @@ def test_final_report_schema_validates_expected_payload() -> None:
     assert report.incident_id == "inc-1"
     assert report.remediation_suggestions
     assert report.review_status == "draft"
+    assert report.claim_citations == []
     assert report.review_history == []
 
 

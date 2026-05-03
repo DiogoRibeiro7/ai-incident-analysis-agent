@@ -6,7 +6,7 @@ import re
 
 from incident_agent.core.settings import GroundingConfig
 from incident_agent.knowledge.retrieval import RetrievedSnippet
-from incident_agent.schemas.final_report import FinalIncidentReport
+from incident_agent.schemas.final_report import ClaimCitation, FinalIncidentReport
 from incident_agent.schemas.grounding import GroundingClaimAssessment, GroundingSummary
 from incident_agent.schemas.rca import EvidenceBundle, RootCauseHypothesis
 
@@ -61,6 +61,33 @@ def validate_report_grounding(
         unsupported_claims=unsupported_claims,
         claims=assessments,
     )
+
+
+def build_claim_citations(
+    *,
+    report: FinalIncidentReport,
+    evidence_bundle: EvidenceBundle,
+    root_cause_hypothesis: RootCauseHypothesis,
+    retrieved_context: list[RetrievedSnippet],
+    minimum_support_overlap: float,
+) -> list[ClaimCitation]:
+    """Build machine-readable evidence mappings for facts and inferences."""
+
+    claims = _extract_claims(report)
+    supports = _build_support_entries(evidence_bundle, root_cause_hypothesis, retrieved_context)
+    claim_citations: list[ClaimCitation] = []
+    for claim in claims:
+        claim_tokens = _tokens(claim)
+        support_ids: list[str] = []
+        for support_id, support_text in supports:
+            support_tokens = _tokens(support_text)
+            if not support_tokens:
+                continue
+            overlap = _overlap_ratio(claim_tokens, support_tokens)
+            if overlap >= minimum_support_overlap:
+                support_ids.append(support_id)
+        claim_citations.append(ClaimCitation(claim=claim, support_ids=support_ids))
+    return claim_citations
 
 
 def _extract_claims(report: FinalIncidentReport) -> list[str]:

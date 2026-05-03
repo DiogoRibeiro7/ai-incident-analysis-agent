@@ -29,7 +29,7 @@ from incident_agent.correlation.engine import (
     load_correlation_config,
     load_dependency_graph_for_correlation,
 )
-from incident_agent.grounding.validate import validate_report_grounding
+from incident_agent.grounding.validate import build_claim_citations, validate_report_grounding
 from incident_agent.ingestion import ingest_logs, ingest_metrics
 from incident_agent.knowledge.retrieval import retrieve_context
 from incident_agent.llm.base import BaseLLMProvider, LLMProviderError
@@ -549,6 +549,13 @@ def _generate_final_reports(
             inferences=inferences,
             uncertainties=uncertainties,
             citations=citations,
+        )
+        report.claim_citations = build_claim_citations(
+            report=report,
+            evidence_bundle=bundle,
+            root_cause_hypothesis=hypothesis,
+            retrieved_context=retrieved_context,
+            minimum_support_overlap=grounding_config.minimum_support_overlap,
         )
         if grounding_config.enabled:
             grounding_summary = validate_report_grounding(

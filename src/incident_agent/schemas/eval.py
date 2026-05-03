@@ -52,6 +52,7 @@ class EvaluationMetrics(BaseModel):
     root_cause_correctness: float
     impacted_service_correctness: float
     factual_grounding: float
+    citation_coverage: float
     hallucination_rate: float
     report_completeness: float
     latency_seconds: float
@@ -81,6 +82,7 @@ class EvaluationSummary(BaseModel):
     root_cause_correctness: float
     impacted_service_correctness: float
     factual_grounding: float
+    citation_coverage: float
     hallucination_rate: float
     report_completeness: float
     latency_seconds: float
@@ -104,6 +106,7 @@ class EvaluationRegressionThresholds(BaseModel):
     root_cause_correctness_drop_max: float = 0.02
     impacted_service_correctness_drop_max: float = 0.02
     factual_grounding_drop_max: float = 0.02
+    citation_coverage_drop_max: float = 0.02
     report_completeness_drop_max: float = 0.02
     hallucination_rate_increase_max: float = 0.05
 

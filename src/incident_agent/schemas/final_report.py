@@ -20,6 +20,13 @@ class ReportReviewEntry(BaseModel):
     reviewed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class ClaimCitation(BaseModel):
+    """Support mapping for one report claim."""
+
+    claim: str
+    support_ids: list[str] = Field(default_factory=list)
+
+
 class FinalIncidentReport(BaseModel):
     """Canonical structured final report schema."""
 
@@ -33,5 +40,6 @@ class FinalIncidentReport(BaseModel):
     inferences: list[str] = Field(default_factory=list)
     uncertainties: list[str] = Field(default_factory=list)
     citations: list[str] = Field(default_factory=list)
+    claim_citations: list[ClaimCitation] = Field(default_factory=list)
     review_status: ReviewStatus = "draft"
     review_history: list[ReportReviewEntry] = Field(default_factory=list)

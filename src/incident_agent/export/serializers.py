@@ -46,7 +46,9 @@ def serialize_report_as_markdown(report: FinalIncidentReport) -> str:
         "## Uncertainties\n"
         f"{_markdown_list(report.uncertainties)}\n\n"
         "## Citations\n"
-        f"{_markdown_list(report.citations)}\n"
+        f"{_markdown_list(report.citations)}\n\n"
+        "## Claim Citations\n"
+        f"{_markdown_claim_citations(report)}\n"
     )
 
 
@@ -161,6 +163,7 @@ def serialize_report_as_html(report: FinalIncidentReport) -> str:
         f"        {_html_list_section('Inferences', report.inferences)}\n"
         f"        {_html_list_section('Uncertainties', report.uncertainties)}\n"
         f"        {_html_list_section('Citations', report.citations)}\n"
+        f"        {_html_claim_citations_section(report)}\n"
         "      </div>\n"
         "    </section>\n"
         "  </main>\n"
@@ -188,3 +191,26 @@ def _html_list_section(title: str, items: list[str]) -> str:
     rendered_items = items or ["none"]
     body = "".join(f"<li>{html.escape(item)}</li>" for item in rendered_items)
     return f'        <h2>{html.escape(title)}</h2>\n        <ul class="list">{body}</ul>\n'
+
+
+def _markdown_claim_citations(report: FinalIncidentReport) -> str:
+    if not report.claim_citations:
+        return "- none"
+    rows: list[str] = []
+    for item in report.claim_citations:
+        supports = ", ".join(item.support_ids) if item.support_ids else "none"
+        rows.append(f"- claim: {item.claim}\n  supports: {supports}")
+    return "\n".join(rows)
+
+
+def _html_claim_citations_section(report: FinalIncidentReport) -> str:
+    if not report.claim_citations:
+        return "        <h2>Claim Citations</h2>\n        <ul class=\"list\"><li>none</li></ul>\n"
+    body = ""
+    for item in report.claim_citations:
+        supports = ", ".join(item.support_ids) if item.support_ids else "none"
+        body += "<li><strong>claim:</strong> "
+        body += f"{html.escape(item.claim)}"
+        body += "<br><strong>supports:</strong> "
+        body += f"{html.escape(supports)}</li>"
+    return f"        <h2>Claim Citations</h2>\n        <ul class=\"list\">{body}</ul>\n"

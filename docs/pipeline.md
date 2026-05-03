@@ -74,6 +74,7 @@ Each final report now includes:
 - Approved reports can be exported to a webhook with delivery audit log at `exports/webhook_deliveries.jsonl`
 - Reports can be listed by status via CLI (`incident-agent list-reports --review-status approved`)
   and API (`GET /analysis-jobs/{job_id}/reports?review_status=approved`)
+- `claim_citations`: per-claim machine-readable evidence reference IDs for facts/inferences
 
 ## Report export formats
 

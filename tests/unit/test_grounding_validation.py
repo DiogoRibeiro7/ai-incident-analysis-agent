@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from incident_agent.core.settings import GroundingConfig
-from incident_agent.grounding.validate import validate_report_grounding
+from incident_agent.grounding.validate import build_claim_citations, validate_report_grounding
 from incident_agent.knowledge.retrieval import RetrievedSnippet
 from incident_agent.schemas.anomaly import AnomalyCandidate
 from incident_agent.schemas.final_report import FinalIncidentReport
@@ -66,6 +66,15 @@ def test_validate_report_grounding_marks_supported_claims() -> None:
 
     assert summary.passed is True
     assert summary.unsupported_claims == 0
+    claim_citations = build_claim_citations(
+        report=report,
+        evidence_bundle=bundle,
+        root_cause_hypothesis=hypothesis,
+        retrieved_context=[],
+        minimum_support_overlap=0.2,
+    )
+    assert claim_citations
+    assert all(item.support_ids for item in claim_citations)
 
 
 def test_validate_report_grounding_detects_unsupported_claims() -> None:

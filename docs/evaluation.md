@@ -23,6 +23,7 @@ Per scenario and mode, the harness records:
 - root-cause correctness
 - impacted service correctness
 - factual grounding
+- claim citation coverage
 - hallucination rate
 - report completeness
 - latency (seconds)

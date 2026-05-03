@@ -122,6 +122,7 @@ def _evaluate_scenario_mode(
             root_cause_correctness=0.0,
             impacted_service_correctness=0.0,
             factual_grounding=0.0,
+            citation_coverage=0.0,
             hallucination_rate=1.0,
             report_completeness=0.0,
             latency_seconds=round(latency, 4),
@@ -355,10 +356,17 @@ def _score_report(
         bool(report.remediation_suggestions),
     ]
     completeness = sum(1 for flag in completeness_fields if flag) / len(completeness_fields)
+    citation_claims = report.claim_citations
+    citation_coverage = (
+        sum(1 for item in citation_claims if item.support_ids) / len(citation_claims)
+        if citation_claims
+        else 0.0
+    )
     return EvaluationMetrics(
         root_cause_correctness=round(root_correct, 4),
         impacted_service_correctness=round(impacted_score, 4),
         factual_grounding=round(factual_grounding, 4),
+        citation_coverage=round(citation_coverage, 4),
         hallucination_rate=round(hallucination_rate, 4),
         report_completeness=round(completeness, 4),
         latency_seconds=round(latency_seconds, 4),
@@ -388,6 +396,10 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
                 ),
                 factual_grounding=round(
                     mean(item.metrics.factual_grounding for item in successful),
+                    4,
+                ),
+                citation_coverage=round(
+                    mean(item.metrics.citation_coverage for item in successful),
                     4,
                 ),
                 hallucination_rate=round(
@@ -421,6 +433,7 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
                 root_cause_correctness=0.0,
                 impacted_service_correctness=0.0,
                 factual_grounding=0.0,
+                citation_coverage=0.0,
                 hallucination_rate=1.0,
                 report_completeness=0.0,
                 latency_seconds=0.0,
@@ -448,7 +461,7 @@ def _summary_markdown(result: EvaluationResult) -> str:
     header = (
         "# Evaluation Summary\n\n"
         f"Run ID: `{result.run_id}`\n\n"
-        "| Mode | Runs | Success | Root Cause | Impacted Services | Grounding "
+        "| Mode | Runs | Success | Root Cause | Impacted Services | Grounding | Citation Coverage "
         "| Hallucination | Completeness | Latency (s) | Avg Tokens | Total Cost (USD) |\n"
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
     )
@@ -468,7 +481,8 @@ def _summary_markdown(result: EvaluationResult) -> str:
             "| "
             f"{summary.mode} | {summary.runs} | {summary.success_rate:.2f} | "
             f"{summary.root_cause_correctness:.2f} | {summary.impacted_service_correctness:.2f} | "
-            f"{summary.factual_grounding:.2f} | {summary.hallucination_rate:.2f} | "
+            f"{summary.factual_grounding:.2f} | {summary.citation_coverage:.2f} | "
+            f"{summary.hallucination_rate:.2f} | "
             f"{summary.report_completeness:.2f} | {summary.latency_seconds:.2f} | "
             f"{avg_tokens} | {total_cost} |"
         )
@@ -582,6 +596,13 @@ def _metric_regressions_for_mode(
             baseline.factual_grounding,
             candidate.factual_grounding,
             thresholds.factual_grounding_drop_max,
+            "drop",
+        ),
+        (
+            "citation_coverage",
+            baseline.citation_coverage,
+            candidate.citation_coverage,
+            thresholds.citation_coverage_drop_max,
             "drop",
         ),
         (

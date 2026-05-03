@@ -154,6 +154,7 @@ def test_run_pipeline_from_files_includes_citations_when_retrieval_enabled(
 
     assert result.final_reports
     assert any(report.citations for report in result.final_reports)
+    assert any(report.claim_citations for report in result.final_reports)
 
 
 def test_run_pipeline_warn_policy_keeps_reports_on_grounding_failure(tmp_path: Path) -> None:
