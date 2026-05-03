@@ -40,6 +40,12 @@ from incident_agent.services.pipeline import run_pipeline_from_files
 from incident_agent.services.rca import run_rca_from_files
 from incident_agent.synthetic.generator import generate_benchmark_scenario
 from incident_agent.utils.observability import configure_logging
+from incident_agent.utils.security import (
+    config_security_warnings,
+    load_security_config_safe,
+    validate_read_path,
+    validate_write_path,
+)
 from incident_agent.workflow.review import transition_report_review
 
 app = typer.Typer(help="CLI for the AI incident analysis agent.")
@@ -55,6 +61,7 @@ def analyze(
 ) -> None:
     """Analyze logs and metrics and print structured reports."""
 
+    _enforce_read_paths(logs, metrics, config)
     reports = analyze_from_files(log_path=logs, metric_path=metrics, config_path=config)
     serialised = [report.model_dump(mode="json") for report in reports]
     console.print_json(json.dumps(serialised))
@@ -67,6 +74,7 @@ def validate_data(
 ) -> None:
     """Validate datasets and print quality metrics."""
 
+    _enforce_read_paths(logs, metrics)
     logs_result = ingest_logs(logs)
     metrics_result = ingest_metrics(metrics)
 
@@ -103,6 +111,8 @@ def ingest_data(
 ) -> None:
     """Ingest datasets and persist normalized records plus quality reports."""
 
+    _enforce_read_paths(logs, metrics)
+    _enforce_write_path(output_dir)
     logs_result = ingest_logs(logs)
     metrics_result = ingest_metrics(metrics)
     target = Path(output_dir)
@@ -264,6 +274,8 @@ def run_pipeline_command(
 ) -> None:
     """Run the full pipeline and persist artifacts."""
 
+    _enforce_read_paths(logs, metrics, config)
+    _enforce_write_path(artifact_root)
     result = run_pipeline_from_files(
         log_path=logs,
         metric_path=metrics,
@@ -286,8 +298,10 @@ def print_config(
 ) -> None:
     """Print the loaded runtime configuration."""
 
+    _enforce_read_paths(config)
     loaded = load_settings_from_yaml(Path(config))
-    console.print_json(json.dumps(loaded))
+    payload = {"config": loaded, "security_warnings": config_security_warnings(config)}
+    console.print_json(json.dumps(payload))
 
 
 @app.command("list-incidents")
@@ -433,6 +447,7 @@ def export_approved_webhook(
 ) -> None:
     """Export one approved report to a generic webhook endpoint."""
 
+    _enforce_read_paths(config)
     run_dir = _resolve_run_directory(
         artifact_dir=artifact_dir,
         artifact_root=artifact_root,
@@ -566,6 +581,8 @@ def run_eval_command(
 ) -> None:
     """Run evaluation harness across benchmark scenarios."""
 
+    _enforce_read_paths(benchmark_path, config)
+    _enforce_write_path(artifact_root)
     result = run_evaluation(
         benchmark_path=benchmark_path,
         config_path=config,
@@ -604,6 +621,8 @@ def compare_eval_command(
 ) -> None:
     """Compare baseline vs candidate eval summaries and fail on regressions."""
 
+    _enforce_read_paths(baseline_summary_path, candidate_summary_path)
+    _enforce_write_path(output_dir)
     thresholds = EvaluationRegressionThresholds(
         root_cause_correctness_drop_max=root_cause_drop_max,
         impacted_service_correctness_drop_max=impacted_drop_max,
@@ -686,6 +705,8 @@ def run_demo_command(
 ) -> None:
     """Run the deterministic portfolio demo and write stable artifacts."""
 
+    _enforce_read_paths(config)
+    _enforce_write_path(output_dir)
     result = run_demo(
         output_root=output_dir,
         config_path=config,
@@ -822,6 +843,19 @@ def _transition_report_from_artifacts(
         encoding="utf-8",
     )
     return match
+
+
+def _enforce_read_paths(*paths: str) -> None:
+    workspace_root = Path.cwd()
+    policy = load_security_config_safe("configs/default.yaml")
+    for value in paths:
+        validate_read_path(value, config=policy, workspace_root=workspace_root)
+
+
+def _enforce_write_path(path: str) -> None:
+    workspace_root = Path.cwd()
+    policy = load_security_config_safe("configs/default.yaml")
+    validate_write_path(path, config=policy, workspace_root=workspace_root)
 
 
 if __name__ == "__main__":

@@ -66,6 +66,7 @@ from incident_agent.utils.observability import (
     log_event,
 )
 from incident_agent.utils.resilience import JsonFileCache, file_fingerprint, stable_cache_key
+from incident_agent.utils.security import config_security_warnings
 
 logger = get_logger(__name__)
 ModelT = TypeVar("ModelT")
@@ -103,6 +104,7 @@ def run_pipeline_from_files(
     used_intermediate_cache = False
     llm_usage_summary = LLMUsageSummary()
     grounding_summaries: list[GroundingSummary] = []
+    warnings.extend(config_security_warnings(config_path))
 
     with bind_context(run_id=run_id):
         log_event(

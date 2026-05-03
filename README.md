@@ -42,6 +42,7 @@ The result is a repository that demonstrates practical AI systems engineering ra
 - Multi-format report export: JSON, Markdown, and HTML
 - Report review lifecycle with status transitions (`draft`, `reviewed`, `approved`, `rejected`)
 - Generic webhook export for approved reports with retry and delivery audit log
+- Security hardening checks for file-path allowlists and config secret warnings
 
 ## Architecture
 

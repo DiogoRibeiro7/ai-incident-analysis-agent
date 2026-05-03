@@ -129,3 +129,12 @@ webhook_export:
   timeout_seconds: 10.0
   max_retries: 2
   retry_backoff_seconds: 1.0
+security:
+  enabled: true
+  allowed_read_paths:
+    - data
+    - configs
+    - artifacts
+    - eval
+  allowed_write_paths:
+    - artifacts

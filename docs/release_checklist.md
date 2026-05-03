@@ -31,6 +31,13 @@ Use this checklist before publishing a public release or major portfolio update.
 - issue templates and workflows are still valid
 - no generated coverage or local artifacts are staged for commit
 
+## Security Signoff
+
+- verify file-path inputs stay within configured security allowlists
+- verify config inspection reports no unresolved plaintext secret warnings
+- verify API rejects path traversal and disallowed input paths
+- confirm release approver records explicit security signoff in release notes
+
 ## Demo sanity check
 
 - run `make run-demo`

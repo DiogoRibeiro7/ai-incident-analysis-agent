@@ -41,6 +41,12 @@ from incident_agent.utils.observability import (
     get_logger,
     log_event,
 )
+from incident_agent.utils.security import (
+    config_security_warnings,
+    load_security_config_safe,
+    validate_read_path,
+    validate_write_path,
+)
 
 app = FastAPI(
     title="AI Incident Analysis Agent",
@@ -110,6 +116,7 @@ class ConfigInspectionResponse(BaseModel):
 
     config_path: str
     config: dict[str, Any]
+    warnings: list[str] = Field(default_factory=list)
 
 
 class AnalysisJobSubmitRequest(BaseModel):
@@ -271,8 +278,17 @@ def inspect_config(
     path = Path(config_path)
     if not path.exists():
         raise HTTPException(status_code=400, detail=f"Config path does not exist: {config_path}")
+    security_config = load_security_config_safe(path)
+    try:
+        validate_read_path(path, config=security_config, workspace_root=Path.cwd())
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     loaded = load_settings_from_yaml(path)
-    return ConfigInspectionResponse(config_path=config_path, config=loaded)
+    return ConfigInspectionResponse(
+        config_path=config_path,
+        config=loaded,
+        warnings=config_security_warnings(path),
+    )
 
 
 @app.post("/analyze", response_model=AnalyzeResponse, summary="Analyze ad hoc events")
@@ -296,6 +312,27 @@ def analyze_pipeline(request: PipelineAnalyzeRequest) -> PipelineRunResult:
     """Run full file-based pipeline and persist output artifacts."""
 
     try:
+        security_config = load_security_config_safe(request.config_path)
+        validate_read_path(
+            request.logs_path,
+            config=security_config,
+            workspace_root=Path.cwd(),
+        )
+        validate_read_path(
+            request.metrics_path,
+            config=security_config,
+            workspace_root=Path.cwd(),
+        )
+        validate_read_path(
+            request.config_path,
+            config=security_config,
+            workspace_root=Path.cwd(),
+        )
+        validate_write_path(
+            request.artifact_root,
+            config=security_config,
+            workspace_root=Path.cwd(),
+        )
         return run_pipeline_from_files(
             log_path=request.logs_path,
             metric_path=request.metrics_path,
@@ -330,6 +367,27 @@ def submit_analysis_job(
 
     job = job_store.create_submitted_job()
     try:
+        security_config = load_security_config_safe(request.config_path)
+        validate_read_path(
+            request.logs_path,
+            config=security_config,
+            workspace_root=Path.cwd(),
+        )
+        validate_read_path(
+            request.metrics_path,
+            config=security_config,
+            workspace_root=Path.cwd(),
+        )
+        validate_read_path(
+            request.config_path,
+            config=security_config,
+            workspace_root=Path.cwd(),
+        )
+        validate_write_path(
+            request.artifact_root,
+            config=security_config,
+            workspace_root=Path.cwd(),
+        )
         pipeline_result = run_pipeline_from_files(
             log_path=request.logs_path,
             metric_path=request.metrics_path,
@@ -442,6 +500,15 @@ def export_job_report_webhook(
         settings = load_webhook_export_config(request.config_path)
     except Exception as error:
         raise HTTPException(status_code=400, detail=f"Invalid webhook config: {error}") from error
+    security_config = load_security_config_safe(request.config_path)
+    try:
+        validate_read_path(
+            request.config_path,
+            config=security_config,
+            workspace_root=Path.cwd(),
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     try:
         delivery = export_report_via_webhook(
             report=report,

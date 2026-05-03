@@ -41,6 +41,20 @@ def test_config_inspection_failure_for_missing_file() -> None:
     assert "does not exist" in response.json()["detail"]
 
 
+def test_analyze_pipeline_rejects_disallowed_paths() -> None:
+    client = _client()
+    response = client.post(
+        "/analyze-pipeline",
+        json={
+            "logs_path": "../secrets/logs.csv",
+            "metrics_path": "data/sample/incident/anomaly_metrics.csv",
+            "artifact_root": "artifacts/pipeline",
+        },
+    )
+    assert response.status_code == 400
+    assert "not allowed by security policy" in response.json()["detail"]
+
+
 def test_analyze_pipeline_endpoint(tmp_path: Path) -> None:
     client = _client()
     response = client.post(

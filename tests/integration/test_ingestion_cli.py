@@ -47,6 +47,23 @@ def test_validate_data_command(tmp_path: Path) -> None:
     assert "Data Quality Report" in result.stdout
 
 
+def test_run_pipeline_command_rejects_disallowed_path(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "run-pipeline",
+            "--logs",
+            "../secrets/logs.csv",
+            "--metrics",
+            "data/sample/incident/anomaly_metrics.csv",
+            "--artifact-root",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code != 0
+
+
 def test_ingest_data_command_writes_artifacts(tmp_path: Path) -> None:
     logs_path = tmp_path / "logs.csv"
     logs_path.write_text(

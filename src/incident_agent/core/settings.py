@@ -80,6 +80,16 @@ class WebhookExportConfig(BaseModel):
     retry_backoff_seconds: float = 1.0
 
 
+class SecurityConfig(BaseModel):
+    """Security hardening runtime configuration."""
+
+    enabled: bool = True
+    allowed_read_paths: list[str] = Field(
+        default_factory=lambda: ["data", "configs", "artifacts", "eval"]
+    )
+    allowed_write_paths: list[str] = Field(default_factory=lambda: ["artifacts"])
+
+
 def load_settings_from_yaml(path: Path) -> dict[str, Any]:
     """Load settings from a YAML file.
 
@@ -155,3 +165,13 @@ def load_webhook_export_config(path: str | Path = "configs/default.yaml") -> Web
     if not isinstance(section, dict):
         raise ValueError("The 'webhook_export' section must be a mapping.")
     return WebhookExportConfig.model_validate(section)
+
+
+def load_security_config(path: str | Path = "configs/default.yaml") -> SecurityConfig:
+    """Load security hardening config from YAML."""
+
+    loaded = load_settings_from_yaml(Path(path))
+    section = loaded.get("security", {})
+    if not isinstance(section, dict):
+        raise ValueError("The 'security' section must be a mapping.")
+    return SecurityConfig.model_validate(section)
