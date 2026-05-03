@@ -122,6 +122,14 @@ Run the API locally:
 poetry run uvicorn incident_agent.api.main:app --reload
 ```
 
+Run with Docker Compose:
+
+```bash
+cp .env.example .env
+docker compose up --build
+curl http://localhost:8000/health
+```
+
 ## How the Pipeline Works
 
 The default pipeline command performs:
@@ -281,7 +289,7 @@ Current limitations are explicit:
 - ingestion is local-file based; there are no live observability platform connectors yet
 - RCA is heuristic, not learned
 - OpenAI is the only real provider currently supported
-- deployment packaging and production infrastructure are not included
+- deployment packaging is demo-oriented; production hardening is not included
 
 ## Future Work
 
@@ -331,6 +339,7 @@ tests/               # Unit and integration tests
 - [pipeline.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/pipeline.md)
 - [release_checklist.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/release_checklist.md)
 - [demo_walkthrough.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/demo_walkthrough.md)
+- [deployment.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/deployment.md)
 - [observability.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/observability.md)
 - [synthetic_scenarios.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/synthetic_scenarios.md)
 - [sample_incident_report.html](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/sample_incident_report.html)

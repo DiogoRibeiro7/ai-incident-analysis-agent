@@ -33,3 +33,6 @@ run-api:
 
 run-demo:
 	poetry run incident-agent run-demo
+
+docker-up:
+	docker compose up --build

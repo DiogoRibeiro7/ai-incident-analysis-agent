@@ -86,3 +86,12 @@ jobs:
           name: eval-regression-artifacts
           path: artifacts/eval-ci/compare
           if-no-files-found: error
+
+  container-build:
+    name: container-image-build
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t ai-incident-analysis-agent:ci .

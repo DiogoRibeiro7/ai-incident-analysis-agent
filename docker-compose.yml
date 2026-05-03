@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-incident-analysis-agent:local
+    ports:
+      - "${API_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      INCIDENT_AGENT_ENVIRONMENT: "${INCIDENT_AGENT_ENVIRONMENT:-container}"
+      INCIDENT_AGENT_LOG_LEVEL: "${INCIDENT_AGENT_LOG_LEVEL:-INFO}"
+      INCIDENT_AGENT_JSON_LOGS: "${INCIDENT_AGENT_JSON_LOGS:-true}"
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./configs:/app/configs:ro
+      - ./data:/app/data:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
