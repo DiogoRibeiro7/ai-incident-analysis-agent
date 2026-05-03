@@ -346,6 +346,7 @@ tests/               # Unit and integration tests
 - [evaluation.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/evaluation.md)
 - [pipeline.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/pipeline.md)
 - [release_checklist.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/release_checklist.md)
+- [triage_playbook.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/triage_playbook.md)
 - [demo_walkthrough.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/demo_walkthrough.md)
 - [deployment.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/deployment.md)
 - [observability.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/observability.md)

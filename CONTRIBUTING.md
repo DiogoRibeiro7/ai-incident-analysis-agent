@@ -40,3 +40,8 @@ CI currently fails on:
 - mypy failures
 - test failures
 - coverage dropping below the enforced threshold
+
+## Maintainer operations
+
+Maintainer issue/PR handling expectations live in
+[docs/triage_playbook.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/triage_playbook.md).
