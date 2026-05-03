@@ -131,19 +131,113 @@ def _text_chunks(path: Path) -> list[str]:
 def _json_chunks(path: Path) -> list[str]:
     suffix = path.suffix.lower()
     if suffix == ".jsonl":
-        rows = [
-            line.strip()
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
+        rows = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                parsed = json.loads(stripped)
+            except json.JSONDecodeError:
+                rows.append(stripped)
+                continue
+            incident_chunk = _incident_record_chunk(parsed)
+            if incident_chunk is not None:
+                rows.append(incident_chunk)
+                continue
+            rows.append(json.dumps(parsed, sort_keys=True))
         return rows
 
     payload = json.loads(path.read_text(encoding="utf-8"))
+    incident_chunks = _historical_incident_chunks(payload)
+    if incident_chunks:
+        return incident_chunks
     if isinstance(payload, list):
         return [json.dumps(item, sort_keys=True) for item in payload]
     if isinstance(payload, dict):
         return [json.dumps(payload, sort_keys=True)]
     return [json.dumps(payload)]
+
+
+def _historical_incident_chunks(payload: object) -> list[str]:
+    records: list[object] | None = None
+    if isinstance(payload, dict):
+        candidates = payload.get("historical_incidents")
+        if isinstance(candidates, list):
+            records = candidates
+    elif isinstance(payload, list):
+        records = payload
+    if records is None:
+        return []
+
+    chunks: list[str] = []
+    for record in records:
+        chunk = _incident_record_chunk(record)
+        if chunk is not None:
+            chunks.append(chunk)
+    return chunks
+
+
+def _incident_record_chunk(record: object) -> str | None:
+    if not isinstance(record, dict):
+        return None
+    summary = _as_str(record.get("incident_summary")) or _as_str(record.get("summary"))
+    root_cause = _as_str(record.get("root_cause")) or _as_str(record.get("root_cause_service"))
+    service = _as_str(record.get("primary_service")) or _as_str(record.get("service"))
+    if not summary and not root_cause and not service:
+        return None
+
+    parts: list[str] = []
+    incident_id = _as_str(record.get("incident_id"))
+    if incident_id:
+        parts.append(f"incident_id={incident_id}")
+    occurred_at = _as_str(record.get("occurred_at")) or _as_str(record.get("timestamp"))
+    if occurred_at:
+        parts.append(f"occurred_at={occurred_at}")
+    if service:
+        parts.append(f"primary_service={service}")
+
+    impacted_services = _as_str_list(record.get("impacted_services"))
+    if impacted_services:
+        parts.append(f"impacted_services={', '.join(impacted_services)}")
+
+    anomaly_types = _as_str_list(record.get("anomaly_types"))
+    if anomaly_types:
+        parts.append(f"anomaly_types={', '.join(anomaly_types)}")
+
+    tags = _as_str_list(record.get("tags"))
+    if tags:
+        parts.append(f"tags={', '.join(tags)}")
+
+    if summary:
+        parts.append(f"summary={summary}")
+    if root_cause:
+        parts.append(f"root_cause={root_cause}")
+    resolution = _as_str(record.get("resolution")) or _as_str(record.get("remediation"))
+    if resolution:
+        parts.append(f"resolution={resolution}")
+
+    return " | ".join(parts)
+
+
+def _as_str(value: object) -> str | None:
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped:
+            return stripped
+    return None
+
+
+def _as_str_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    rows: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            stripped = item.strip()
+            if stripped:
+                rows.append(stripped)
+    return rows
 
 
 def _score_candidate(text: str, terms: list[str]) -> float:

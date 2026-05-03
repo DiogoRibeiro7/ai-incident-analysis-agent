@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from incident_agent.core.settings import KnowledgeConfig
 from incident_agent.knowledge.retrieval import retrieve_context
@@ -89,3 +91,84 @@ def test_retrieve_context_returns_empty_when_disabled() -> None:
     )
 
     assert retrieved == []
+
+
+def test_retrieve_context_loads_historical_incident_corpus_json(tmp_path: Path) -> None:
+    bundle, summary, hypothesis = _build_rca_context()
+    corpus_path = tmp_path / "historical_incidents.json"
+    corpus_path.write_text(
+        json.dumps(
+            {
+                "historical_incidents": [
+                    {
+                        "incident_id": "hist-1",
+                        "primary_service": "checkout-service",
+                        "impacted_services": ["api-service"],
+                        "anomaly_types": ["latency_spike"],
+                        "incident_summary": "Checkout latency spike during deploy.",
+                        "root_cause": "checkout-service connection pool saturation",
+                        "resolution": "Rollback and scale pool",
+                        "tags": ["payments", "latency"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = KnowledgeConfig(
+        enabled=True,
+        source_paths=[str(corpus_path)],
+        top_k=3,
+        max_snippet_chars=500,
+    )
+    retrieved = retrieve_context(
+        config=config,
+        evidence_bundle=bundle,
+        summary_features=summary,
+        root_cause_hypothesis=hypothesis,
+    )
+
+    assert retrieved
+    content = retrieved[0].content
+    assert "incident_id=hist-1" in content
+    assert "primary_service=checkout-service" in content
+    assert "root_cause=checkout-service connection pool saturation" in content
+
+
+def test_retrieve_context_loads_historical_incident_corpus_jsonl(tmp_path: Path) -> None:
+    bundle, summary, hypothesis = _build_rca_context()
+    corpus_path = tmp_path / "historical_incidents.jsonl"
+    corpus_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "incident_id": "hist-jsonl-1",
+                        "service": "checkout-service",
+                        "summary": "Latency and error burst in checkout-service.",
+                        "root_cause_service": "checkout-service",
+                        "impacted_services": ["api-service"],
+                    }
+                ),
+                '{"raw":"line"}',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = KnowledgeConfig(
+        enabled=True,
+        source_paths=[str(corpus_path)],
+        top_k=2,
+        max_snippet_chars=400,
+    )
+    retrieved = retrieve_context(
+        config=config,
+        evidence_bundle=bundle,
+        summary_features=summary,
+        root_cause_hypothesis=hypothesis,
+    )
+
+    assert retrieved
+    assert any("incident_id=hist-jsonl-1" in item.content for item in retrieved)
