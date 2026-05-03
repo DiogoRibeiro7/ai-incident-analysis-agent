@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from incident_agent.ingest.files import load_logs, load_metrics
+from incident_agent.ingestion import ingest_logs, ingest_metrics
 from incident_agent.normalization.timeline import (
     NormalizationConfig,
     align_events_to_timeline,
@@ -22,8 +20,8 @@ def normalize_from_files(
 ) -> TimelineAlignmentResult:
     """Load logs and metrics and align them on a shared timeline."""
 
-    logs = load_logs(Path(log_path))
-    metrics = load_metrics(Path(metric_path))
+    logs = ingest_logs(log_path).records
+    metrics = ingest_metrics(metric_path).records
     config = load_normalization_config(config_path)
     if bucket_size_minutes is not None:
         config = NormalizationConfig(

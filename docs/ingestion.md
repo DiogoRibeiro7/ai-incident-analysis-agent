@@ -20,7 +20,7 @@ Metrics:
 - `src/incident_agent/ingestion/logs.py`
 - `src/incident_agent/ingestion/metrics.py`
 - `src/incident_agent/ingestion/common.py`
-- `src/incident_agent/ingest/files.py`
+- `src/incident_agent/ingestion/__init__.py` (canonical public entrypoint)
 
 ## Validation behavior
 

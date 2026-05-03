@@ -30,7 +30,7 @@ from incident_agent.correlation.engine import (
     load_dependency_graph_for_correlation,
 )
 from incident_agent.grounding.validate import validate_report_grounding
-from incident_agent.ingest.files import load_logs, load_metrics
+from incident_agent.ingestion import ingest_logs, ingest_metrics
 from incident_agent.knowledge.retrieval import retrieve_context
 from incident_agent.llm.base import BaseLLMProvider, LLMProviderError
 from incident_agent.llm.factory import create_provider, load_llm_config
@@ -729,9 +729,10 @@ def _load_records_with_degradation(
     warnings: list[str],
     failure_summaries: list[PipelineFailureSummary],
 ) -> list[LogEvent] | list[MetricPoint]:
-    loader = load_logs if dataset_name == "logs" else load_metrics
     try:
-        return loader(path)
+        if dataset_name == "logs":
+            return ingest_logs(path).records
+        return ingest_metrics(path).records
     except FileNotFoundError:
         if not allow_missing:
             raise
