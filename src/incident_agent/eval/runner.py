@@ -41,9 +41,9 @@ def run_evaluation(
     run_dir = Path(artifact_root) / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    modes = ["heuristic-only", "mock-llm"]
+    modes = ["heuristic-only", "mock-llm-no-retrieval", "mock-llm-retrieval"]
     if include_real_llm:
-        modes.append("real-llm")
+        modes.extend(["real-llm-no-retrieval", "real-llm-retrieval"])
 
     records: list[EvaluationRunRecord] = []
     for scenario in scenarios:
@@ -88,7 +88,7 @@ def _evaluate_scenario_mode(
                 scenario=scenario,
                 config_path=config_path,
             )
-        elif mode == "mock-llm":
+        elif mode == "mock-llm-no-retrieval":
             (
                 report,
                 predicted_root,
@@ -101,6 +101,37 @@ def _evaluate_scenario_mode(
                 config_path=config_path,
                 run_dir=run_dir,
                 provider="mock",
+                retrieval_enabled=False,
+            )
+        elif mode == "mock-llm-retrieval":
+            (
+                report,
+                predicted_root,
+                impacted_services,
+                incident_count,
+                token_usage,
+                estimated_cost,
+            ) = _run_pipeline_mode(
+                scenario=scenario,
+                config_path=config_path,
+                run_dir=run_dir,
+                provider="mock",
+                retrieval_enabled=True,
+            )
+        elif mode == "real-llm-no-retrieval":
+            (
+                report,
+                predicted_root,
+                impacted_services,
+                incident_count,
+                token_usage,
+                estimated_cost,
+            ) = _run_pipeline_mode(
+                scenario=scenario,
+                config_path=config_path,
+                run_dir=run_dir,
+                provider="openai",
+                retrieval_enabled=False,
             )
         else:
             (
@@ -115,6 +146,7 @@ def _evaluate_scenario_mode(
                 config_path=config_path,
                 run_dir=run_dir,
                 provider="openai",
+                retrieval_enabled=True,
             )
     except Exception as error:
         latency = perf_counter() - start
@@ -144,6 +176,7 @@ def _evaluate_scenario_mode(
         report=report,
         predicted_root=predicted_root,
         impacted_services=impacted_services,
+        mode=mode,
         latency_seconds=latency,
         token_usage=token_usage,
         estimated_cost_usd=estimated_cost,
@@ -222,6 +255,7 @@ def _run_pipeline_mode(
     config_path: str,
     run_dir: Path,
     provider: str,
+    retrieval_enabled: bool,
 ) -> tuple[FinalIncidentReport, str | None, list[str], int, int | None, float | None]:
     effective_config = _write_config_with_provider(
         config_path=config_path,
@@ -234,6 +268,16 @@ def _run_pipeline_mode(
         config_path=str(effective_config),
         artifact_root=str(run_dir / "pipeline-runs"),
         bucket_size_minutes=5,
+        retrieval_enabled=retrieval_enabled,
+        knowledge_source_paths=(
+            scenario.retrieval_source_paths
+            if retrieval_enabled and scenario.retrieval_source_paths
+            else (
+                ["data/knowledge/runbooks", "data/knowledge/incidents"]
+                if retrieval_enabled
+                else None
+            )
+        ),
     )
     if not result.final_reports:
         report = FinalIncidentReport(
@@ -307,6 +351,7 @@ def _score_report(
     report: FinalIncidentReport,
     predicted_root: str | None,
     impacted_services: list[str],
+    mode: str,
     latency_seconds: float,
     token_usage: int | None,
     estimated_cost_usd: float | None,
@@ -362,11 +407,23 @@ def _score_report(
         if citation_claims
         else 0.0
     )
+    retrieval_relevance = 0.0
+    if mode.endswith("-retrieval"):
+        retrieved_ids = set(report.citations)
+        used_retrieved_ids: set[str] = set()
+        for item in citation_claims:
+            for support_id in item.support_ids:
+                if support_id in retrieved_ids:
+                    used_retrieved_ids.add(support_id)
+        retrieval_relevance = (
+            len(used_retrieved_ids) / len(retrieved_ids) if retrieved_ids else 0.0
+        )
     return EvaluationMetrics(
         root_cause_correctness=round(root_correct, 4),
         impacted_service_correctness=round(impacted_score, 4),
         factual_grounding=round(factual_grounding, 4),
         citation_coverage=round(citation_coverage, 4),
+        retrieval_relevance=round(retrieval_relevance, 4),
         hallucination_rate=round(hallucination_rate, 4),
         report_completeness=round(completeness, 4),
         latency_seconds=round(latency_seconds, 4),
@@ -402,6 +459,10 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
                     mean(item.metrics.citation_coverage for item in successful),
                     4,
                 ),
+                retrieval_relevance=round(
+                    mean(item.metrics.retrieval_relevance for item in successful),
+                    4,
+                ),
                 hallucination_rate=round(
                     mean(item.metrics.hallucination_rate for item in successful),
                     4,
@@ -434,6 +495,7 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
                 impacted_service_correctness=0.0,
                 factual_grounding=0.0,
                 citation_coverage=0.0,
+                retrieval_relevance=0.0,
                 hallucination_rate=1.0,
                 report_completeness=0.0,
                 latency_seconds=0.0,
@@ -461,8 +523,9 @@ def _summary_markdown(result: EvaluationResult) -> str:
     header = (
         "# Evaluation Summary\n\n"
         f"Run ID: `{result.run_id}`\n\n"
-        "| Mode | Runs | Success | Root Cause | Impacted Services | Grounding | Citation Coverage "
-        "| Hallucination | Completeness | Latency (s) | Avg Tokens | Total Cost (USD) |\n"
+        "| Mode | Runs | Success | Root Cause | Impacted Services | Grounding | "
+        "Citation Coverage | Retrieval Relevance | Hallucination | "
+        "Completeness | Latency (s) | Avg Tokens | Total Cost (USD) |\n"
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
     )
     lines = []
@@ -482,6 +545,7 @@ def _summary_markdown(result: EvaluationResult) -> str:
             f"{summary.mode} | {summary.runs} | {summary.success_rate:.2f} | "
             f"{summary.root_cause_correctness:.2f} | {summary.impacted_service_correctness:.2f} | "
             f"{summary.factual_grounding:.2f} | {summary.citation_coverage:.2f} | "
+            f"{summary.retrieval_relevance:.2f} | "
             f"{summary.hallucination_rate:.2f} | "
             f"{summary.report_completeness:.2f} | {summary.latency_seconds:.2f} | "
             f"{avg_tokens} | {total_cost} |"

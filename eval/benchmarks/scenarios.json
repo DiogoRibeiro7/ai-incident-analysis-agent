@@ -6,7 +6,8 @@
     "metrics_path": "data/sample/incident/anomaly_metrics.csv",
     "expected_root_cause": "checkout-service",
     "expected_impacted_services": ["checkout-service"],
-    "expected_min_incidents": 1
+    "expected_min_incidents": 1,
+    "retrieval_source_paths": ["data/knowledge/runbooks", "data/knowledge/incidents"]
   },
   {
     "scenario_id": "api_degraded_period",
@@ -15,6 +16,7 @@
     "metrics_path": "data/sample/degraded/metrics.csv",
     "expected_root_cause": "api-service",
     "expected_impacted_services": ["api-service"],
-    "expected_min_incidents": 1
+    "expected_min_incidents": 1,
+    "retrieval_source_paths": ["data/knowledge/runbooks", "data/knowledge/incidents"]
   }
 ]

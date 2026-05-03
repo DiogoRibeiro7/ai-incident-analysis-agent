@@ -271,8 +271,10 @@ Example pipeline request:
 
 The evaluation harness compares:
 - `heuristic-only`
-- `mock-llm`
-- optional `real-llm`
+- `mock-llm-no-retrieval`
+- `mock-llm-retrieval`
+- optional `real-llm-no-retrieval`
+- optional `real-llm-retrieval`
 
 It records:
 - root-cause correctness

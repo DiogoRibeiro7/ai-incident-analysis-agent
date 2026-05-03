@@ -4,8 +4,10 @@
 
 Measure incident analysis quality across benchmark scenarios and compare output modes:
 - `heuristic-only`
-- `mock-llm`
-- optional `real-llm`
+- `mock-llm-no-retrieval`
+- `mock-llm-retrieval`
+- optional `real-llm-no-retrieval`
+- optional `real-llm-retrieval`
 
 ## Components
 

@@ -20,6 +20,11 @@ def test_run_evaluation_generates_summary_artifacts(tmp_path: Path) -> None:
     assert (artifact_dir / "summary.md").exists()
     assert result.records
     assert result.summaries
+    modes = {item.mode for item in result.summaries}
+    assert "mock-llm-no-retrieval" in modes
+    assert "mock-llm-retrieval" in modes
+    retrieval_summary = next(item for item in result.summaries if item.mode == "mock-llm-retrieval")
+    assert retrieval_summary.retrieval_relevance >= 0.0
 
 
 def test_compare_evaluation_summaries_detects_regression(tmp_path: Path) -> None:

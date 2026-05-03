@@ -43,6 +43,7 @@ class BenchmarkScenario(BaseModel):
     expected_root_cause: str | None = None
     expected_impacted_services: list[str] = Field(default_factory=list)
     expected_min_incidents: int = 1
+    retrieval_source_paths: list[str] = Field(default_factory=list)
     generator: SyntheticScenarioGeneratorConfig | None = None
 
 
@@ -53,6 +54,7 @@ class EvaluationMetrics(BaseModel):
     impacted_service_correctness: float
     factual_grounding: float
     citation_coverage: float
+    retrieval_relevance: float = 0.0
     hallucination_rate: float
     report_completeness: float
     latency_seconds: float
@@ -83,6 +85,7 @@ class EvaluationSummary(BaseModel):
     impacted_service_correctness: float
     factual_grounding: float
     citation_coverage: float
+    retrieval_relevance: float = 0.0
     hallucination_rate: float
     report_completeness: float
     latency_seconds: float
