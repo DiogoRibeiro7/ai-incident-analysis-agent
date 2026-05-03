@@ -99,13 +99,20 @@ def _load_candidates(source_paths: list[str]) -> list[_SnippetCandidate]:
 def _load_file_candidates(path: Path) -> list[_SnippetCandidate]:
     if path.suffix.lower() not in _TEXT_EXTENSIONS | _JSON_EXTENSIONS:
         return []
-    if path.stat().st_size > _MAX_FILE_BYTES:
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return []
+    if size > _MAX_FILE_BYTES:
         return []
 
-    if path.suffix.lower() in _JSON_EXTENSIONS:
-        chunks = _json_chunks(path)
-    else:
-        chunks = _text_chunks(path)
+    try:
+        if path.suffix.lower() in _JSON_EXTENSIONS:
+            chunks = _json_chunks(path)
+        else:
+            chunks = _text_chunks(path)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return []
 
     candidates: list[_SnippetCandidate] = []
     for index, chunk in enumerate(chunks, start=1):
@@ -124,7 +131,40 @@ def _load_file_candidates(path: Path) -> list[_SnippetCandidate]:
 
 def _text_chunks(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
+    if path.suffix.lower() == ".md":
+        return _markdown_section_chunks(text)
     chunks = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+    return chunks if chunks else [text.strip()]
+
+
+def _markdown_section_chunks(text: str) -> list[str]:
+    lines = text.splitlines()
+    current_section = "document"
+    section_lines: list[str] = []
+    chunks: list[str] = []
+
+    def flush() -> None:
+        if not section_lines:
+            return
+        body = "\n".join(section_lines).strip()
+        section_lines.clear()
+        if not body:
+            return
+        paragraphs = [part.strip() for part in re.split(r"\n\s*\n", body) if part.strip()]
+        if not paragraphs:
+            return
+        for paragraph in paragraphs:
+            chunks.append(f"section={current_section} | content={paragraph}")
+
+    for raw_line in lines:
+        line = raw_line.rstrip()
+        heading = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*$", line)
+        if heading:
+            flush()
+            current_section = heading.group(1).strip().lower()
+            continue
+        section_lines.append(line)
+    flush()
     return chunks if chunks else [text.strip()]
 
 
