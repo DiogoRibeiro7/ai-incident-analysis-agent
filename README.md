@@ -9,6 +9,10 @@
 
 Incident analysis system for logs and metrics, built as an AI engineering portfolio project. It ingests operational data, normalizes it into aligned time windows, detects anomalies, correlates incident candidates, runs deterministic RCA, and generates structured reports through a provider abstraction.
 
+## Security
+
+Security reporting and support policy are documented in [SECURITY.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/SECURITY.md).
+
 ## Motivation
 
 Most incident response demos jump directly to a model prompt and skip the engineering layers that make incident tooling trustworthy. This project focuses on those layers:
