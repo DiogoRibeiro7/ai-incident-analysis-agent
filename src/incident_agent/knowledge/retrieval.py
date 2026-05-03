@@ -189,6 +189,9 @@ def _json_chunks(path: Path) -> list[str]:
         return rows
 
     payload = json.loads(path.read_text(encoding="utf-8"))
+    grafana_chunks = _grafana_annotation_chunks(payload)
+    if grafana_chunks:
+        return grafana_chunks
     incident_chunks = _historical_incident_chunks(payload)
     if incident_chunks:
         return incident_chunks
@@ -278,6 +281,60 @@ def _as_str_list(value: object) -> list[str]:
             if stripped:
                 rows.append(stripped)
     return rows
+
+
+def _grafana_annotation_chunks(payload: object) -> list[str]:
+    annotations: list[object] | None = None
+    if isinstance(payload, dict):
+        candidate = payload.get("annotations")
+        if isinstance(candidate, list):
+            annotations = candidate
+    elif isinstance(payload, list):
+        annotations = payload
+    if annotations is None:
+        return []
+
+    chunks: list[str] = []
+    for annotation in annotations:
+        chunk = _grafana_annotation_chunk(annotation)
+        if chunk is not None:
+            chunks.append(chunk)
+    return chunks
+
+
+def _grafana_annotation_chunk(annotation: object) -> str | None:
+    if not isinstance(annotation, dict):
+        return None
+    text = _as_str(annotation.get("text"))
+    if text is None:
+        return None
+
+    parts: list[str] = ["source=grafana-annotation"]
+    annotation_id = _as_str(annotation.get("id"))
+    if annotation_id:
+        parts.append(f"annotation_id={annotation_id}")
+    dashboard_uid = _as_str(annotation.get("dashboardUID")) or _as_str(
+        annotation.get("dashboardUid")
+    )
+    if dashboard_uid:
+        parts.append(f"dashboard_uid={dashboard_uid}")
+    dashboard_id = _as_str(annotation.get("dashboardId"))
+    if dashboard_id:
+        parts.append(f"dashboard_id={dashboard_id}")
+    panel_id = _as_str(annotation.get("panelId"))
+    if panel_id:
+        parts.append(f"panel_id={panel_id}")
+    time_start = _as_str(annotation.get("time"))
+    if time_start:
+        parts.append(f"time={time_start}")
+    time_end = _as_str(annotation.get("timeEnd"))
+    if time_end:
+        parts.append(f"time_end={time_end}")
+    tags = _as_str_list(annotation.get("tags"))
+    if tags:
+        parts.append(f"tags={', '.join(tags)}")
+    parts.append(f"text={text}")
+    return " | ".join(parts)
 
 
 def _score_candidate(text: str, terms: list[str]) -> float:

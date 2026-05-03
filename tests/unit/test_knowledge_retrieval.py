@@ -228,3 +228,46 @@ def test_retrieve_context_skips_malformed_json_file(tmp_path: Path) -> None:
     )
 
     assert retrieved == []
+
+
+def test_retrieve_context_loads_grafana_annotations_json(tmp_path: Path) -> None:
+    bundle, summary, hypothesis = _build_rca_context()
+    grafana_path = tmp_path / "grafana_annotations.json"
+    grafana_path.write_text(
+        json.dumps(
+            {
+                "annotations": [
+                    {
+                        "id": 42,
+                        "dashboardUID": "checkout-overview",
+                        "dashboardId": 7,
+                        "panelId": 12,
+                        "time": "2026-03-20T11:15:00Z",
+                        "timeEnd": "2026-03-20T11:35:00Z",
+                        "tags": ["checkout-service", "latency_spike", "incident"],
+                        "text": "checkout-service latency spike during rollout",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = KnowledgeConfig(
+        enabled=True,
+        source_paths=[str(grafana_path)],
+        top_k=3,
+        max_snippet_chars=500,
+    )
+
+    retrieved = retrieve_context(
+        config=config,
+        evidence_bundle=bundle,
+        summary_features=summary,
+        root_cause_hypothesis=hypothesis,
+    )
+
+    assert retrieved
+    content = retrieved[0].content
+    assert "source=grafana-annotation" in content
+    assert "dashboard_uid=checkout-overview" in content
+    assert "tags=checkout-service, latency_spike, incident" in content
