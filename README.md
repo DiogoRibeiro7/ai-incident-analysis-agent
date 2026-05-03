@@ -347,6 +347,7 @@ tests/               # Unit and integration tests
 - [historical_incident_corpus.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/historical_incident_corpus.md)
 - [runbook_ingestion.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/runbook_ingestion.md)
 - [grafana_context_ingestion.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/grafana_context_ingestion.md)
+- [artifact_storage.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/artifact_storage.md)
 - [architecture.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/architecture.md)
 - [ingestion.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/ingestion.md)
 - [anomaly_detection.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/anomaly_detection.md)

@@ -18,6 +18,7 @@ from incident_agent.connectors.prometheus import fetch_prometheus_metrics
 from incident_agent.core.settings import (
     GroundingConfig,
     KnowledgeConfig,
+    load_artifact_storage_config,
     load_grounding_config,
     load_knowledge_config,
     load_observability_config,
@@ -58,6 +59,7 @@ from incident_agent.schemas.pipeline import (
 )
 from incident_agent.schemas.rca import RCAResult
 from incident_agent.schemas.timeline import TimelineAlignmentResult
+from incident_agent.storage.backends import mirror_artifacts_to_backend
 from incident_agent.utils.observability import (
     bind_context,
     configure_logging,
@@ -191,6 +193,8 @@ def run_pipeline_from_files(
                     reports=[report.model_dump(mode="json") for report in result.final_reports],
                     run_summary=_run_summary_payload(result),
                 )
+                artifact_storage_config = load_artifact_storage_config(config_path)
+                mirror_artifacts_to_backend(run_dir=run_dir, config=artifact_storage_config)
                 return result
 
             with execution_span(logger, event_prefix="pipeline.stage", stage="normalize"):
@@ -417,6 +421,8 @@ def run_pipeline_from_files(
                     reports=[report.model_dump(mode="json") for report in reports],
                     run_summary=_run_summary_payload(result),
                 )
+                artifact_storage_config = load_artifact_storage_config(config_path)
+                mirror_artifacts_to_backend(run_dir=run_dir, config=artifact_storage_config)
 
             log_event(
                 logger,

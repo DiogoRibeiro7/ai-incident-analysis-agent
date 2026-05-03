@@ -129,6 +129,12 @@ webhook_export:
   timeout_seconds: 10.0
   max_retries: 2
   retry_backoff_seconds: 1.0
+artifact_storage:
+  backend: local
+  s3_bucket: null
+  s3_prefix: incident-agent-artifacts
+  s3_region: null
+  s3_endpoint_url: null
 security:
   enabled: true
   allowed_read_paths:

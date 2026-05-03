@@ -90,6 +90,16 @@ class SecurityConfig(BaseModel):
     allowed_write_paths: list[str] = Field(default_factory=lambda: ["artifacts"])
 
 
+class ArtifactStorageConfig(BaseModel):
+    """Artifact storage backend configuration."""
+
+    backend: Literal["local", "s3"] = "local"
+    s3_bucket: str | None = None
+    s3_prefix: str = "incident-agent-artifacts"
+    s3_region: str | None = None
+    s3_endpoint_url: str | None = None
+
+
 def load_settings_from_yaml(path: Path) -> dict[str, Any]:
     """Load settings from a YAML file.
 
@@ -175,3 +185,15 @@ def load_security_config(path: str | Path = "configs/default.yaml") -> SecurityC
     if not isinstance(section, dict):
         raise ValueError("The 'security' section must be a mapping.")
     return SecurityConfig.model_validate(section)
+
+
+def load_artifact_storage_config(
+    path: str | Path = "configs/default.yaml",
+) -> ArtifactStorageConfig:
+    """Load artifact storage config from YAML."""
+
+    loaded = load_settings_from_yaml(Path(path))
+    section = loaded.get("artifact_storage", {})
+    if not isinstance(section, dict):
+        raise ValueError("The 'artifact_storage' section must be a mapping.")
+    return ArtifactStorageConfig.model_validate(section)

@@ -141,6 +141,11 @@ Relevant config keys in `configs/default.yaml`:
 - `grounding.enabled`
 - `grounding.policy` (`warn` or `fail`)
 - `grounding.minimum_support_overlap`
+- `artifact_storage.backend` (`local` or `s3`)
+- `artifact_storage.s3_bucket`
+- `artifact_storage.s3_prefix`
+- `artifact_storage.s3_region`
+- `artifact_storage.s3_endpoint_url`
 - `connectors.prometheus.base_url`
 - `connectors.prometheus.timeout_seconds`
 - `connectors.prometheus.step_seconds`
