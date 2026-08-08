@@ -17,10 +17,12 @@ from incident_agent.schemas.eval import (
     EvaluationComparisonFinding,
     EvaluationComparisonResult,
     EvaluationMetrics,
+    EvaluationMode,
     EvaluationRegressionThresholds,
     EvaluationResult,
     EvaluationRunRecord,
     EvaluationSummary,
+    evaluation_modes,
 )
 from incident_agent.schemas.final_report import FinalIncidentReport
 from incident_agent.services.pipeline import run_pipeline_from_files
@@ -41,9 +43,7 @@ def run_evaluation(
     run_dir = Path(artifact_root) / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    modes = ["heuristic-only", "mock-llm-no-retrieval", "mock-llm-retrieval"]
-    if include_real_llm:
-        modes.extend(["real-llm-no-retrieval", "real-llm-retrieval"])
+    modes = evaluation_modes(include_real_llm=include_real_llm)
 
     records: list[EvaluationRunRecord] = []
     for scenario in scenarios:
@@ -70,13 +70,13 @@ def run_evaluation(
 def _evaluate_scenario_mode(
     *,
     scenario: BenchmarkScenario,
-    mode: str,
+    mode: EvaluationMode,
     config_path: str,
     run_dir: Path,
 ) -> EvaluationRunRecord:
     start = perf_counter()
     try:
-        if mode == "heuristic-only":
+        if mode is EvaluationMode.HEURISTIC_ONLY:
             (
                 report,
                 predicted_root,
@@ -88,7 +88,7 @@ def _evaluate_scenario_mode(
                 scenario=scenario,
                 config_path=config_path,
             )
-        elif mode == "mock-llm-no-retrieval":
+        elif mode is EvaluationMode.MOCK_LLM_NO_RETRIEVAL:
             (
                 report,
                 predicted_root,
@@ -103,7 +103,7 @@ def _evaluate_scenario_mode(
                 provider="mock",
                 retrieval_enabled=False,
             )
-        elif mode == "mock-llm-retrieval":
+        elif mode is EvaluationMode.MOCK_LLM_RETRIEVAL:
             (
                 report,
                 predicted_root,
@@ -118,7 +118,7 @@ def _evaluate_scenario_mode(
                 provider="mock",
                 retrieval_enabled=True,
             )
-        elif mode == "real-llm-no-retrieval":
+        elif mode is EvaluationMode.REAL_LLM_NO_RETRIEVAL:
             (
                 report,
                 predicted_root,
@@ -132,22 +132,24 @@ def _evaluate_scenario_mode(
                 run_dir=run_dir,
                 provider="openai",
                 retrieval_enabled=False,
+            )
+        elif mode is EvaluationMode.REAL_LLM_RETRIEVAL:
+            (
+                report,
+                predicted_root,
+                impacted_services,
+                incident_count,
+                token_usage,
+                estimated_cost,
+            ) = _run_pipeline_mode(
+                scenario=scenario,
+                config_path=config_path,
+                run_dir=run_dir,
+                provider="openai",
+                retrieval_enabled=True,
             )
         else:
-            (
-                report,
-                predicted_root,
-                impacted_services,
-                incident_count,
-                token_usage,
-                estimated_cost,
-            ) = _run_pipeline_mode(
-                scenario=scenario,
-                config_path=config_path,
-                run_dir=run_dir,
-                provider="openai",
-                retrieval_enabled=True,
-            )
+            raise ValueError(f"Unsupported evaluation mode: {mode}")
     except Exception as error:
         latency = perf_counter() - start
         metrics = EvaluationMetrics(
@@ -351,7 +353,7 @@ def _score_report(
     report: FinalIncidentReport,
     predicted_root: str | None,
     impacted_services: list[str],
-    mode: str,
+    mode: EvaluationMode,
     latency_seconds: float,
     token_usage: int | None,
     estimated_cost_usd: float | None,
@@ -408,7 +410,7 @@ def _score_report(
         else 0.0
     )
     retrieval_relevance = 0.0
-    if mode.endswith("-retrieval"):
+    if mode in (EvaluationMode.MOCK_LLM_RETRIEVAL, EvaluationMode.REAL_LLM_RETRIEVAL):
         retrieved_ids = set(report.citations)
         used_retrieved_ids: set[str] = set()
         for item in citation_claims:
@@ -431,7 +433,11 @@ def _score_report(
 
 
 def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSummary]:
-    modes = sorted({record.mode for record in records})
+    mode_order = {mode: index for index, mode in enumerate(evaluation_modes(include_real_llm=True))}
+    modes = sorted(
+        {record.mode for record in records},
+        key=lambda mode: mode_order.get(mode, len(mode_order)),
+    )
     summaries: list[EvaluationSummary] = []
     for mode in modes:
         scoped = [record for record in records if record.mode == mode]
@@ -538,7 +544,7 @@ def _summary_markdown(result: EvaluationResult) -> str:
         )
         lines.append(
             "| "
-            f"{summary.mode} | {summary.runs} | {summary.success_rate:.2f} | "
+            f"{summary.mode.value} | {summary.runs} | {summary.success_rate:.2f} | "
             f"{summary.root_cause_correctness:.2f} | {summary.impacted_service_correctness:.2f} | "
             f"{summary.factual_grounding:.2f} | {summary.citation_coverage:.2f} | "
             f"{summary.retrieval_relevance:.2f} | "
@@ -562,6 +568,7 @@ def compare_evaluation_summaries(
     candidate = _load_summary_rows(candidate_summary_path)
     baseline_by_mode = {item.mode: item for item in baseline}
     candidate_by_mode = {item.mode: item for item in candidate}
+    mode_order = {mode: index for index, mode in enumerate(evaluation_modes(include_real_llm=True))}
 
     findings: list[EvaluationComparisonFinding] = []
     for mode, baseline_summary in baseline_by_mode.items():
@@ -569,7 +576,7 @@ def compare_evaluation_summaries(
             findings.append(
                 EvaluationComparisonFinding(
                     mode=mode,
-                    metric="mode_present",
+                    metric="mode_missing",
                     baseline_value=1.0,
                     candidate_value=0.0,
                     delta=-1.0,
@@ -584,6 +591,21 @@ def compare_evaluation_summaries(
                 baseline=baseline_summary,
                 candidate=candidate_summary,
                 thresholds=limit,
+            )
+        )
+    unexpected_modes = sorted(
+        candidate_by_mode.keys() - baseline_by_mode.keys(),
+        key=lambda mode: mode_order.get(mode, len(mode_order)),
+    )
+    for mode in unexpected_modes:
+        findings.append(
+            EvaluationComparisonFinding(
+                mode=mode,
+                metric="mode_unexpected",
+                baseline_value=0.0,
+                candidate_value=1.0,
+                delta=1.0,
+                threshold=0.0,
             )
         )
 
@@ -623,7 +645,7 @@ def _load_summary_rows(path: str) -> list[EvaluationSummary]:
 
 def _metric_regressions_for_mode(
     *,
-    mode: str,
+    mode: EvaluationMode,
     baseline: EvaluationSummary,
     candidate: EvaluationSummary,
     thresholds: EvaluationRegressionThresholds,
@@ -724,7 +746,7 @@ def _comparison_markdown(comparison: EvaluationComparisonResult) -> str:
     )
     rows = [
         (
-            f"| {item.mode} | {item.metric} | {item.baseline_value:.4f} | "
+            f"| {item.mode.value} | {item.metric} | {item.baseline_value:.4f} | "
             f"{item.candidate_value:.4f} | {item.delta:.4f} | {item.threshold:.4f} |"
         )
         for item in comparison.findings
