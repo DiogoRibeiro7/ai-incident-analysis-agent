@@ -75,6 +75,9 @@ Outputs:
 - `eval_comparison.md`
 
 The command exits with code `1` when configured regression thresholds are exceeded.
+It also fails when candidate summaries omit a baseline mode or include a mode that is
+not present in the baseline. Mode names are validated against the canonical set
+listed above.
 
 ## Synthetic generation
 

@@ -562,7 +562,7 @@ def test_compare_eval_command_fails_on_regression(tmp_path: Path) -> None:
         json.dumps(
             [
                 {
-                    "mode": "mock-llm",
+                    "mode": "mock-llm-no-retrieval",
                     "runs": 1,
                     "success_rate": 1.0,
                     "root_cause_correctness": 0.6,
@@ -583,7 +583,7 @@ def test_compare_eval_command_fails_on_regression(tmp_path: Path) -> None:
         json.dumps(
             [
                 {
-                    "mode": "mock-llm",
+                    "mode": "mock-llm-no-retrieval",
                     "runs": 1,
                     "success_rate": 1.0,
                     "root_cause_correctness": 0.5,

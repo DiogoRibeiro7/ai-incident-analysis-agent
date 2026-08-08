@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -15,6 +16,36 @@ SyntheticScenarioType = Literal[
     "resource_exhaustion",
     "partial_outage",
 ]
+
+
+class EvaluationMode(StrEnum):
+    """Supported evaluation execution modes."""
+
+    HEURISTIC_ONLY = "heuristic-only"
+    MOCK_LLM_NO_RETRIEVAL = "mock-llm-no-retrieval"
+    MOCK_LLM_RETRIEVAL = "mock-llm-retrieval"
+    REAL_LLM_NO_RETRIEVAL = "real-llm-no-retrieval"
+    REAL_LLM_RETRIEVAL = "real-llm-retrieval"
+
+
+DEFAULT_EVALUATION_MODES: tuple[EvaluationMode, ...] = (
+    EvaluationMode.HEURISTIC_ONLY,
+    EvaluationMode.MOCK_LLM_NO_RETRIEVAL,
+    EvaluationMode.MOCK_LLM_RETRIEVAL,
+)
+
+REAL_LLM_EVALUATION_MODES: tuple[EvaluationMode, ...] = (
+    EvaluationMode.REAL_LLM_NO_RETRIEVAL,
+    EvaluationMode.REAL_LLM_RETRIEVAL,
+)
+
+
+def evaluation_modes(*, include_real_llm: bool = False) -> tuple[EvaluationMode, ...]:
+    """Return the canonical ordered modes for evaluation runs."""
+
+    if include_real_llm:
+        return DEFAULT_EVALUATION_MODES + REAL_LLM_EVALUATION_MODES
+    return DEFAULT_EVALUATION_MODES
 
 
 class SyntheticScenarioGeneratorConfig(BaseModel):
@@ -66,7 +97,7 @@ class EvaluationRunRecord(BaseModel):
     """One evaluation run record for scenario + mode."""
 
     scenario_id: str
-    mode: str
+    mode: EvaluationMode
     success: bool
     error: str | None = None
     predicted_root_cause: str | None = None
@@ -78,7 +109,7 @@ class EvaluationRunRecord(BaseModel):
 class EvaluationSummary(BaseModel):
     """Aggregated metrics for a mode."""
 
-    mode: str
+    mode: EvaluationMode
     runs: int
     success_rate: float
     root_cause_correctness: float
@@ -117,7 +148,7 @@ class EvaluationRegressionThresholds(BaseModel):
 class EvaluationComparisonFinding(BaseModel):
     """One regression finding for one mode/metric."""
 
-    mode: str
+    mode: EvaluationMode
     metric: str
     baseline_value: float
     candidate_value: float
