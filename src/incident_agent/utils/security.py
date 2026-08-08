@@ -63,9 +63,7 @@ def config_security_warnings(config_path: str | Path) -> list[str]:
     return warnings
 
 
-def _walk_for_plaintext_secrets(
-    node: object, *, prefix: str, warnings: list[str]
-) -> None:
+def _walk_for_plaintext_secrets(node: object, *, prefix: str, warnings: list[str]) -> None:
     if isinstance(node, dict):
         for key, value in node.items():
             next_prefix = f"{prefix}.{key}" if prefix else str(key)
@@ -73,9 +71,7 @@ def _walk_for_plaintext_secrets(
             if any(token in lowered for token in _SECRET_KEYWORDS) and isinstance(value, str):
                 stripped = value.strip()
                 if stripped and not stripped.startswith("${") and "example" not in stripped.lower():
-                    warnings.append(
-                        f"Potential plaintext secret in config key '{next_prefix}'."
-                    )
+                    warnings.append(f"Potential plaintext secret in config key '{next_prefix}'.")
             _walk_for_plaintext_secrets(value, prefix=next_prefix, warnings=warnings)
     elif isinstance(node, list):
         for index, value in enumerate(node):

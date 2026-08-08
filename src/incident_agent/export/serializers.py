@@ -150,7 +150,7 @@ def serialize_report_as_html(report: FinalIncidentReport) -> str:
         '      <div class="eyebrow">AI Incident Analysis</div>\n'
         f"      <h1>{html.escape(report.incident_id)}</h1>\n"
         f'      <p class="lede">{html.escape(report.executive_summary)}</p>\n'
-        "      <p class=\"lede\"><strong>Review Status:</strong> "
+        '      <p class="lede"><strong>Review Status:</strong> '
         f"{html.escape(report.review_status)}</p>\n"
         '      <div class="grid">\n'
         f"{_html_card('Incident Summary', report.incident_summary)}\n"
@@ -205,7 +205,7 @@ def _markdown_claim_citations(report: FinalIncidentReport) -> str:
 
 def _html_claim_citations_section(report: FinalIncidentReport) -> str:
     if not report.claim_citations:
-        return "        <h2>Claim Citations</h2>\n        <ul class=\"list\"><li>none</li></ul>\n"
+        return '        <h2>Claim Citations</h2>\n        <ul class="list"><li>none</li></ul>\n'
     body = ""
     for item in report.claim_citations:
         supports = ", ".join(item.support_ids) if item.support_ids else "none"
@@ -213,4 +213,4 @@ def _html_claim_citations_section(report: FinalIncidentReport) -> str:
         body += f"{html.escape(item.claim)}"
         body += "<br><strong>supports:</strong> "
         body += f"{html.escape(supports)}</li>"
-    return f"        <h2>Claim Citations</h2>\n        <ul class=\"list\">{body}</ul>\n"
+    return f'        <h2>Claim Citations</h2>\n        <ul class="list">{body}</ul>\n'

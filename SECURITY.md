@@ -4,7 +4,7 @@
 
 This project is currently pre-`v1.0.0`.
 
-- `main` and `develop`: supported
+- `main`: supported
 - tagged releases older than the latest minor line: best effort only
 
 Security fixes are prioritized on active development branches and then included in the next release.

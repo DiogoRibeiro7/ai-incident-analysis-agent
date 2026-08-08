@@ -219,9 +219,7 @@ def test_get_reports_rejects_invalid_review_status_query(tmp_path: Path) -> None
     assert response.status_code == 422
 
 
-def test_export_approved_report_to_webhook(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_export_approved_report_to_webhook(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     class _FakeClient:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
             pass

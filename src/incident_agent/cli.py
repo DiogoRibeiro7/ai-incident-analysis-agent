@@ -837,9 +837,7 @@ def _parse_prometheus_query_flags(values: list[str] | None) -> dict[str, str] | 
     for value in values:
         metric_name, separator, query = value.partition("=")
         if not separator or not metric_name.strip() or not query.strip():
-            raise typer.BadParameter(
-                "Each --prometheus-query must be in metric_name=query format."
-            )
+            raise typer.BadParameter("Each --prometheus-query must be in metric_name=query format.")
         parsed[metric_name.strip()] = query.strip()
     return parsed
 

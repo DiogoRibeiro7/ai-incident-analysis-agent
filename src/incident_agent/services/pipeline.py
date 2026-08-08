@@ -7,7 +7,7 @@ import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import cast
 from uuid import uuid4
 
 from incident_agent.anomaly_detection.engine import (
@@ -71,7 +71,6 @@ from incident_agent.utils.resilience import JsonFileCache, file_fingerprint, sta
 from incident_agent.utils.security import config_security_warnings
 
 logger = get_logger(__name__)
-ModelT = TypeVar("ModelT")
 
 
 def run_pipeline_from_files(
@@ -358,9 +357,7 @@ def run_pipeline_from_files(
                                 fatal=False,
                             )
                         )
-                        warnings.append(
-                            "One or more reports failed strict grounding validation."
-                        )
+                        warnings.append("One or more reports failed strict grounding validation.")
                 except Exception as error:
                     failure_summaries.append(
                         PipelineFailureSummary(
@@ -705,10 +702,7 @@ def _load_prometheus_metrics_with_degradation(
     except Exception as error:
         if not allow_missing:
             raise
-        message = (
-            "prometheus metrics fetch failed: "
-            f"{error}; continuing with available data."
-        )
+        message = f"prometheus metrics fetch failed: {error}; continuing with available data."
         warnings.append(message)
         failure_summaries.append(
             PipelineFailureSummary(stage="ingest", message=message, fatal=False)
@@ -774,7 +768,7 @@ def _load_records_with_degradation(
     return []
 
 
-def _load_or_compute_stage(
+def _load_or_compute_stage[ModelT](
     *,
     cache: JsonFileCache | None,
     cache_key: str,

@@ -39,9 +39,7 @@ def transition_report_review(
     from_status = report.review_status
     allowed = _ALLOWED_TRANSITIONS.get(from_status, set())
     if to_status not in allowed:
-        raise ReviewTransitionError(
-            f"Invalid review transition: {from_status} -> {to_status}."
-        )
+        raise ReviewTransitionError(f"Invalid review transition: {from_status} -> {to_status}.")
     report.review_status = to_status
     report.review_history.append(
         ReportReviewEntry(

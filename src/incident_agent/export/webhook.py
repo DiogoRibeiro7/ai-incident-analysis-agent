@@ -68,9 +68,7 @@ def export_report_via_webhook(
             with httpx.Client(timeout=effective.timeout_seconds) as client:
                 response = client.post(destination_url, json=payload)
             if response.status_code >= 500:
-                last_error = (
-                    f"Webhook temporary server error: status {response.status_code}."
-                )
+                last_error = f"Webhook temporary server error: status {response.status_code}."
             elif response.status_code >= 400:
                 last_error = f"Webhook permanent failure: status {response.status_code}."
                 break

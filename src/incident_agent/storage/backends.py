@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib import import_module
 from pathlib import Path
 from typing import Protocol, cast, runtime_checkable
 
@@ -44,15 +45,13 @@ def _mirror_to_s3(*, run_dir: Path, config: ArtifactStorageConfig) -> None:
     prefix = config.s3_prefix.strip("/")
     for path in sorted(item for item in run_dir.rglob("*") if item.is_file()):
         relative = path.relative_to(run_dir).as_posix()
-        key = "/".join(
-            part for part in [prefix, run_dir.name, relative] if part
-        )
+        key = "/".join(part for part in [prefix, run_dir.name, relative] if part)
         client.upload_file(str(path), config.s3_bucket, key)
 
 
 def _load_boto3() -> _S3ClientFactory:
     try:
-        import boto3  # type: ignore[import-not-found]
+        boto3 = import_module("boto3")
     except Exception as error:  # pragma: no cover
         raise ValueError(
             "backend=s3 requires boto3. "

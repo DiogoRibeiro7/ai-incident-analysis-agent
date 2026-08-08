@@ -415,9 +415,7 @@ def _score_report(
             for support_id in item.support_ids:
                 if support_id in retrieved_ids:
                     used_retrieved_ids.add(support_id)
-        retrieval_relevance = (
-            len(used_retrieved_ids) / len(retrieved_ids) if retrieved_ids else 0.0
-        )
+        retrieval_relevance = len(used_retrieved_ids) / len(retrieved_ids) if retrieved_ids else 0.0
     return EvaluationMetrics(
         root_cause_correctness=round(root_correct, 4),
         impacted_service_correctness=round(impacted_score, 4),
@@ -531,9 +529,7 @@ def _summary_markdown(result: EvaluationResult) -> str:
     lines = []
     for summary in result.summaries:
         avg_tokens = (
-            summary.average_token_usage
-            if summary.average_token_usage is not None
-            else "n/a"
+            summary.average_token_usage if summary.average_token_usage is not None else "n/a"
         )
         total_cost = (
             summary.total_estimated_cost_usd
