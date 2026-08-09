@@ -12,6 +12,9 @@ TimelineSignal = Literal[
     "latency",
     "cpu",
     "memory",
+    "http_error_rate",
+    "error_log_count",
+    "critical_log_count",
     "service_failure",
     "metric_other",
 ]
@@ -40,11 +43,14 @@ class TimelineBucketFeatures(BaseModel):
     event_count: int
     log_count: int
     error_count: int
+    error_log_count: int = 0
+    critical_log_count: int = 0
     warn_count: int
     unique_services_affected: int
     log_spike: bool
     error_burst: bool
     service_failure_signals: int
+    http_error_rate: float | None = None
     p95_latency: float | None = None
     cpu_mean: float | None = None
     cpu_max: float | None = None

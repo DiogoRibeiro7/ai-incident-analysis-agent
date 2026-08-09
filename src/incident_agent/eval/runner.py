@@ -55,6 +55,8 @@ _ANOMALY_KEYWORDS: dict[str, set[str]] = {
     "cpu_anomaly": {"cpu"},
     "memory_anomaly": {"memory"},
     "traffic_drop": {"traffic", "request", "requests", "drop", "dropped", "disappeared"},
+    "error_log_burst": {"error", "errors", "log", "logs", "burst"},
+    "critical_log_burst": {"critical", "log", "logs", "burst"},
     "service_unavailability": {
         "availability",
         "unavailable",

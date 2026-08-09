@@ -26,6 +26,8 @@ class CorrelationConfig(BaseModel):
             "memory_anomaly": 0.9,
             "traffic_drop": 1.0,
             "service_unavailability": 1.2,
+            "error_log_burst": 1.0,
+            "critical_log_burst": 1.2,
         }
     )
     dependency_downstream_bonus: float = 1.0
