@@ -177,6 +177,35 @@ def test_validate_report_grounding_detects_wrong_affected_service() -> None:
     )
 
 
+def test_validate_report_grounding_does_not_accept_service_only_support() -> None:
+    bundle, hypothesis = _context()
+    report = FinalIncidentReport(
+        incident_id="inc-1",
+        incident_summary="checkout-service database failed during the incident.",
+        root_cause_explanation="checkout-service likely caused the incident.",
+        executive_summary="checkout-service latency increased.",
+        engineering_handoff="checkout-service shows dominant evidence.",
+        remediation_suggestions=[],
+        facts=["checkout-service database failed"],
+        inferences=[],
+        uncertainties=[],
+    )
+
+    summary = validate_report_grounding(
+        report=report,
+        evidence_bundle=bundle,
+        root_cause_hypothesis=hypothesis,
+        retrieved_context=[],
+        config=GroundingConfig(enabled=True, policy="fail", minimum_support_overlap=0.34),
+    )
+
+    assert summary.passed is False
+    assert any(
+        "database failed" in item.text and item.status is ClaimValidationStatus.UNSUPPORTED
+        for item in summary.claims
+    )
+
+
 def test_validate_report_grounding_supports_error_rate_claim() -> None:
     bundle, hypothesis = _context(
         [

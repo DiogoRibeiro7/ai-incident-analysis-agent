@@ -50,6 +50,7 @@ def test_validate_retrieval_path_blocks_temp_path_outside_allowlist(tmp_path: Pa
         "http://localhost:9090",
         "http://127.0.0.1:9090",
         "http://[::1]:9090",
+        "http://[fe80::1]/hook",
         "http://169.254.169.254/latest/meta-data",
         "http://10.0.0.2/hook",
         "not-a-url",
