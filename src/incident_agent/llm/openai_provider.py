@@ -15,6 +15,7 @@ from incident_agent.llm.base import (
     LLMResponseFormatError,
     LLMTimeoutError,
 )
+from incident_agent.llm.environment import OPENAI_API_KEY_ENV_VAR
 from incident_agent.schemas.llm import (
     LLMCompletionRequest,
     LLMCompletionResponse,
@@ -40,10 +41,10 @@ class OpenAIProvider(BaseLLMProvider):
         retry_backoff_seconds: float = 1.0,
         model_pricing_usd_per_1k_tokens: dict[str, float] | None = None,
     ) -> None:
-        self._api_key = api_key or os.getenv("INCIDENT_AGENT_OPENAI_API_KEY")
+        self._api_key = api_key or os.getenv(OPENAI_API_KEY_ENV_VAR)
         if not self._api_key:
             raise LLMProviderError(
-                "Missing OpenAI API key. Set INCIDENT_AGENT_OPENAI_API_KEY environment variable."
+                f"Missing OpenAI API key. Set {OPENAI_API_KEY_ENV_VAR} environment variable."
             )
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds

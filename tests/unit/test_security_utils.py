@@ -89,3 +89,45 @@ def test_config_security_warnings_detect_plaintext_secret(tmp_path: Path) -> Non
     )
     warnings = config_security_warnings(config_path)
     assert any("plaintext secret" in item.lower() for item in warnings)
+
+
+def test_config_security_warnings_accept_canonical_openai_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("llm:\n  provider: openai\n", encoding="utf-8")
+    monkeypatch.setenv("INCIDENT_AGENT_OPENAI_API_KEY", "test-key")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    warnings = config_security_warnings(config_path)
+
+    assert not any("OPENAI" in item for item in warnings)
+
+
+def test_config_security_warnings_reject_missing_canonical_openai_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("llm:\n  provider: openai\n", encoding="utf-8")
+    monkeypatch.delenv("INCIDENT_AGENT_OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    warnings = config_security_warnings(config_path)
+
+    assert "INCIDENT_AGENT_OPENAI_API_KEY is not set while llm.provider=openai." in warnings
+
+
+def test_config_security_warnings_ignore_obsolete_openai_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("llm:\n  provider: openai\n", encoding="utf-8")
+    monkeypatch.delenv("INCIDENT_AGENT_OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "obsolete-key")
+
+    warnings = config_security_warnings(config_path)
+
+    assert "INCIDENT_AGENT_OPENAI_API_KEY is not set while llm.provider=openai." in warnings

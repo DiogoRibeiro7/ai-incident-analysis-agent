@@ -14,6 +14,7 @@ from incident_agent.core.settings import (
     load_security_config,
     load_settings_from_yaml,
 )
+from incident_agent.llm.environment import OPENAI_API_KEY_ENV_VAR
 
 _SECRET_KEYWORDS = ("token", "secret", "password", "api_key", "apikey", "webhook_url")
 
@@ -134,8 +135,8 @@ def config_security_warnings(config_path: str | Path) -> list[str]:
 
     llm_section = loaded.get("llm")
     if isinstance(llm_section, dict) and llm_section.get("provider") == "openai":
-        if not os.getenv("OPENAI_API_KEY"):
-            warnings.append("OPENAI_API_KEY is not set while llm.provider=openai.")
+        if not os.getenv(OPENAI_API_KEY_ENV_VAR):
+            warnings.append(f"{OPENAI_API_KEY_ENV_VAR} is not set while llm.provider=openai.")
     return warnings
 
 
