@@ -9,12 +9,37 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 SyntheticScenarioType = Literal[
+    "healthy_stable",
+    "healthy_noisy",
+    "normal_traffic_variability",
+    "transient_latency_spike",
     "latency_degradation",
+    "gradual_latency_drift",
     "error_burst",
+    "persistent_error_rate",
+    "error_logs_only",
+    "metrics_only_degradation",
+    "cpu_saturation",
+    "memory_saturation",
+    "resource_anomaly_no_impact",
     "dependency_cascade",
+    "upstream_root_cause",
+    "downstream_symptoms",
+    "unrelated_simultaneous",
     "traffic_drop",
+    "traffic_disappearance",
+    "isolated_low_volume_bucket",
     "resource_exhaustion",
     "partial_outage",
+    "heartbeat_loss",
+    "temporary_unavailability",
+    "missing_observability",
+    "ambiguous_root_causes",
+    "contradictory_telemetry",
+    "insufficient_evidence",
+    "missing_logs",
+    "missing_metrics",
+    "sparse_observations",
 ]
 
 
@@ -71,9 +96,13 @@ class BenchmarkScenario(BaseModel):
     logs_path: str
     metrics_path: str
     metadata_path: str | None = None
+    incident_expected: bool = True
     expected_root_cause: str | None = None
+    allowed_root_causes: list[str] = Field(default_factory=list)
     expected_impacted_services: list[str] = Field(default_factory=list)
+    expected_anomaly_types: list[str] = Field(default_factory=list)
     expected_min_incidents: int = 1
+    expected_max_incidents: int | None = None
     retrieval_source_paths: list[str] = Field(default_factory=list)
     generator: SyntheticScenarioGeneratorConfig | None = None
 
@@ -81,8 +110,19 @@ class BenchmarkScenario(BaseModel):
 class EvaluationMetrics(BaseModel):
     """Evaluation dimensions for one mode/scenario run."""
 
+    incident_detected: bool = False
+    incident_expectation_correctness: float = 0.0
+    incident_count_correctness: float = 0.0
+    incident_true_positive: int = 0
+    incident_false_positive: int = 0
+    incident_false_negative: int = 0
+    incident_true_negative: int = 0
     root_cause_correctness: float
     impacted_service_correctness: float
+    impacted_service_precision: float = 0.0
+    impacted_service_recall: float = 0.0
+    impacted_service_f1: float = 0.0
+    anomaly_type_recall: float = 0.0
     service_entity_precision: float
     unexpected_service_mention_rate: float
     citation_coverage: float
@@ -109,6 +149,7 @@ class EvaluationRunRecord(BaseModel):
     error: str | None = None
     predicted_root_cause: str | None = None
     predicted_impacted_services: list[str] = Field(default_factory=list)
+    predicted_anomaly_types: list[str] = Field(default_factory=list)
     incident_count: int = 0
     metrics: EvaluationMetrics
 
@@ -119,8 +160,21 @@ class EvaluationSummary(BaseModel):
     mode: EvaluationMode
     runs: int
     success_rate: float
+    incident_precision: float = 0.0
+    incident_recall: float = 0.0
+    incident_f1: float = 0.0
+    incident_false_positive_rate: float = 0.0
+    incident_count_correctness: float = 0.0
+    incident_true_positive: int = 0
+    incident_false_positive: int = 0
+    incident_false_negative: int = 0
+    incident_true_negative: int = 0
     root_cause_correctness: float
     impacted_service_correctness: float
+    impacted_service_precision: float = 0.0
+    impacted_service_recall: float = 0.0
+    impacted_service_f1: float = 0.0
+    anomaly_type_recall: float = 0.0
     service_entity_precision: float
     unexpected_service_mention_rate: float
     citation_coverage: float
@@ -151,8 +205,13 @@ class EvaluationRegressionThresholds(BaseModel):
     """Allowed regression thresholds for candidate vs baseline summaries."""
 
     success_rate_drop_max: float = 0.0
+    incident_f1_drop_max: float = 0.02
+    incident_false_positive_rate_increase_max: float = 0.02
+    incident_count_correctness_drop_max: float = 0.02
     root_cause_correctness_drop_max: float = 0.02
     impacted_service_correctness_drop_max: float = 0.02
+    impacted_service_f1_drop_max: float = 0.02
+    anomaly_type_recall_drop_max: float = 0.02
     service_entity_precision_drop_max: float = 0.02
     unexpected_service_mention_rate_increase_max: float = 0.05
     factual_claim_support_rate_drop_max: float = 0.02

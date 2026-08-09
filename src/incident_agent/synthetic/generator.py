@@ -10,6 +10,28 @@ from pathlib import Path
 
 from incident_agent.schemas.eval import BenchmarkScenario, SyntheticScenarioGeneratorConfig
 
+_HEALTHY_TYPES = {"healthy_stable", "healthy_noisy", "normal_traffic_variability"}
+_LATENCY_TYPES = {"transient_latency_spike", "latency_degradation", "gradual_latency_drift"}
+_ERROR_TYPES = {"error_burst", "persistent_error_rate"}
+_METRICS_ONLY_TYPES = {"metrics_only_degradation", "missing_logs"}
+_CPU_TYPES = {"cpu_saturation"}
+_MEMORY_TYPES = {"memory_saturation"}
+_RESOURCE_TYPES = {"resource_exhaustion", "resource_anomaly_no_impact"}
+_TRAFFIC_TYPES = {"traffic_drop", "traffic_disappearance", "isolated_low_volume_bucket"}
+_AVAILABILITY_TYPES = {
+    "partial_outage",
+    "heartbeat_loss",
+    "temporary_unavailability",
+}
+_DISTRIBUTED_TYPES = {
+    "dependency_cascade",
+    "upstream_root_cause",
+    "downstream_symptoms",
+    "unrelated_simultaneous",
+    "sparse_observations",
+}
+_AMBIGUITY_TYPES = {"ambiguous_root_causes", "contradictory_telemetry"}
+
 
 def generate_benchmark_scenarios(
     configs: Iterable[tuple[str, str, SyntheticScenarioGeneratorConfig]],
@@ -90,6 +112,7 @@ def generate_benchmark_scenario(
         logs_path=str(logs_path),
         metrics_path=str(metrics_path),
         metadata_path=str(metadata_path),
+        incident_expected=config.scenario_type not in _HEALTHY_TYPES,
         expected_root_cause=config.root_cause_service,
         expected_impacted_services=impacted,
         expected_min_incidents=1,
@@ -105,9 +128,17 @@ def _generate_logs(
     services: list[str],
     randomizer: random.Random,
 ) -> list[list[str]]:
+    if config.scenario_type == "missing_logs":
+        return []
+
     rows: list[list[str]] = []
+    total_points = len(timestamps)
     for index, timestamp in enumerate(timestamps):
-        incident_active = index >= max(1, len(timestamps) // 2)
+        incident_active = _incident_active(
+            scenario_type=config.scenario_type,
+            index=index,
+            total_points=total_points,
+        )
         for service in services:
             severity = "INFO"
             message = "Healthy request flow"
@@ -136,11 +167,21 @@ def _generate_metrics(
     impacted_services: list[str],
     randomizer: random.Random,
 ) -> list[list[str]]:
+    if config.scenario_type == "missing_metrics":
+        return []
+
     rows: list[list[str]] = []
+    total_points = len(timestamps)
     for index, timestamp in enumerate(timestamps):
-        incident_factor = 1.0 if index < max(1, len(timestamps) // 2) else 2.8
+        incident_factor = _incident_factor(
+            scenario_type=config.scenario_type,
+            index=index,
+            total_points=total_points,
+        )
         for service in services:
-            impacted = service == config.root_cause_service or service in impacted_services
+            impacted = config.scenario_type not in _HEALTHY_TYPES and (
+                service == config.root_cause_service or service in impacted_services
+            )
             rows.extend(
                 _service_metrics(
                     timestamp=timestamp,
@@ -163,29 +204,42 @@ def _service_metrics(
     impacted: bool,
     randomizer: random.Random,
 ) -> list[list[str]]:
-    latency = float(120 + randomizer.randint(-10, 15))
-    error_rate = 0.01 + randomizer.random() * 0.01
+    noise = 2 if scenario_type == "healthy_stable" else 15
+    latency = float(120 + randomizer.randint(-noise, noise))
+    error_rate = 0.01 + randomizer.random() * (0.006 if scenario_type == "healthy_stable" else 0.02)
     cpu = float(35 + randomizer.randint(-3, 4))
     memory = float(420 + randomizer.randint(-20, 25))
     requests = 1200 + randomizer.randint(-80, 80)
     availability = 0.0
 
+    if scenario_type == "normal_traffic_variability":
+        requests += randomizer.randint(-180, 180)
+
     if impacted:
-        if scenario_type == "latency_degradation":
+        if scenario_type in _LATENCY_TYPES or scenario_type in _METRICS_ONLY_TYPES:
             latency *= incident_factor * 2.4
-        elif scenario_type == "error_burst":
+        elif scenario_type in _ERROR_TYPES:
             error_rate *= incident_factor * 8
-        elif scenario_type == "dependency_cascade":
+        elif scenario_type in _DISTRIBUTED_TYPES or scenario_type in _AMBIGUITY_TYPES:
             latency *= incident_factor * 2.0
             error_rate *= incident_factor * 6
-        elif scenario_type == "traffic_drop":
+        elif scenario_type in _TRAFFIC_TYPES:
             requests = int(requests / max(incident_factor * 1.9, 1.0))
+            if scenario_type == "traffic_disappearance":
+                requests = 0
         elif scenario_type == "resource_exhaustion":
             cpu *= incident_factor * 1.8
             memory *= incident_factor * 1.6
             latency *= incident_factor * 1.8
-        elif scenario_type == "partial_outage":
+        elif scenario_type in _CPU_TYPES:
+            cpu *= incident_factor * 2.3
+            latency *= incident_factor * 1.4
+        elif scenario_type in _MEMORY_TYPES or scenario_type == "resource_anomaly_no_impact":
+            memory *= incident_factor * 2.1
+        elif scenario_type in _AVAILABILITY_TYPES:
             availability = min(1.0, 0.2 * incident_factor)
+            if scenario_type in {"heartbeat_loss", "temporary_unavailability"}:
+                availability = min(1.0, 0.4 * incident_factor)
             error_rate *= incident_factor * 10
             latency *= incident_factor * 2.5
 
@@ -201,15 +255,43 @@ def _service_metrics(
 
 def _root_log_message(scenario_type: str, randomizer: random.Random) -> tuple[str, str]:
     messages = {
+        "healthy_stable": ("INFO", "Healthy request flow"),
+        "healthy_noisy": ("INFO", "Benign noisy telemetry within expected range"),
+        "normal_traffic_variability": ("INFO", "Traffic varied within expected daily range"),
+        "transient_latency_spike": ("WARN", "Brief request latency spike exceeded SLO"),
         "latency_degradation": ("WARN", "Request latency exceeded SLO during peak traffic"),
+        "gradual_latency_drift": ("WARN", "Request latency drifted upward across the window"),
         "error_burst": ("ERROR", "Unhandled exception burst observed in request handler"),
+        "persistent_error_rate": ("ERROR", "Error rate remained elevated across the window"),
+        "error_logs_only": ("ERROR", "Application error logs emitted without metric degradation"),
+        "metrics_only_degradation": ("INFO", "Metric-only degradation without error logs"),
+        "cpu_saturation": ("CRITICAL", "CPU saturation causing service instability"),
+        "memory_saturation": ("CRITICAL", "Memory saturation causing service instability"),
+        "resource_anomaly_no_impact": ("WARN", "Resource anomaly observed without user impact"),
         "dependency_cascade": ("ERROR", "Upstream dependency timeout is cascading downstream"),
+        "upstream_root_cause": ("ERROR", "Upstream dependency failure is driving symptoms"),
+        "downstream_symptoms": ("WARN", "Downstream symptoms detected from upstream issue"),
+        "unrelated_simultaneous": (
+            "ERROR",
+            "Independent service anomalies occurred simultaneously",
+        ),
         "traffic_drop": ("WARN", "Traffic volume dropped sharply from expected baseline"),
+        "traffic_disappearance": ("CRITICAL", "Traffic disappeared for the service"),
+        "isolated_low_volume_bucket": ("WARN", "Single low-volume bucket observed"),
         "resource_exhaustion": (
             "CRITICAL",
             "CPU and memory saturation causing service instability",
         ),
         "partial_outage": ("CRITICAL", "Partial outage detected across multiple service instances"),
+        "heartbeat_loss": ("CRITICAL", "Service heartbeat was lost"),
+        "temporary_unavailability": ("CRITICAL", "Service was temporarily unavailable"),
+        "missing_observability": ("WARN", "Observability signal is missing during investigation"),
+        "ambiguous_root_causes": ("WARN", "Multiple services show plausible causal evidence"),
+        "contradictory_telemetry": ("WARN", "Telemetry is contradictory across signals"),
+        "insufficient_evidence": ("WARN", "Evidence is insufficient for a confident root cause"),
+        "missing_logs": ("WARN", "Logs are missing for the incident window"),
+        "missing_metrics": ("ERROR", "Error logs indicate degradation while metrics are missing"),
+        "sparse_observations": ("WARN", "Sparse observations show intermittent degradation"),
     }
     severity, message = messages[scenario_type]
     if randomizer.random() > 0.7:
@@ -226,6 +308,28 @@ def _timeline(start_time: datetime, duration_minutes: int, interval_minutes: int
     start = _to_utc(start_time)
     points = max(2, (duration_minutes // interval_minutes) + 1)
     return [start + timedelta(minutes=index * interval_minutes) for index in range(points)]
+
+
+def _incident_active(*, scenario_type: str, index: int, total_points: int) -> bool:
+    if scenario_type in _HEALTHY_TYPES:
+        return False
+    midpoint = max(1, total_points // 2)
+    if scenario_type in {"transient_latency_spike", "isolated_low_volume_bucket"}:
+        return index == midpoint
+    if scenario_type == "temporary_unavailability":
+        return midpoint <= index <= min(total_points - 1, midpoint + 1)
+    return index >= midpoint
+
+
+def _incident_factor(*, scenario_type: str, index: int, total_points: int) -> float:
+    if not _incident_active(scenario_type=scenario_type, index=index, total_points=total_points):
+        return 1.0
+    if scenario_type == "gradual_latency_drift":
+        midpoint = max(1, total_points // 2)
+        return 1.4 + ((index - midpoint + 1) * 0.35)
+    if scenario_type in {"transient_latency_spike", "isolated_low_volume_bucket"}:
+        return 3.8
+    return 2.8
 
 
 def _to_utc(timestamp: datetime) -> datetime:
