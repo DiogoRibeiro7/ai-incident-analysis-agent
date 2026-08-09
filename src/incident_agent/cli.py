@@ -648,18 +648,27 @@ def compare_eval_command(
     impacted_drop_max: Annotated[
         float, typer.Option(help="Allowed impacted-service correctness drop.")
     ] = 0.02,
-    grounding_drop_max: Annotated[
-        float, typer.Option(help="Allowed factual grounding drop.")
+    service_entity_precision_drop_max: Annotated[
+        float, typer.Option(help="Allowed service-entity precision drop.")
     ] = 0.02,
+    unexpected_service_mention_increase_max: Annotated[
+        float, typer.Option(help="Allowed unexpected service mention rate increase.")
+    ] = 0.05,
+    factual_claim_support_drop_max: Annotated[
+        float, typer.Option(help="Allowed factual-claim support rate drop.")
+    ] = 0.02,
+    unsupported_factual_claim_increase_max: Annotated[
+        float, typer.Option(help="Allowed unsupported factual-claim rate increase.")
+    ] = 0.05,
+    contradictory_factual_claim_increase_max: Annotated[
+        float, typer.Option(help="Allowed contradictory factual-claim rate increase.")
+    ] = 0.0,
     citation_coverage_drop_max: Annotated[
         float, typer.Option(help="Allowed claim citation coverage drop.")
     ] = 0.02,
     completeness_drop_max: Annotated[
         float, typer.Option(help="Allowed report completeness drop.")
     ] = 0.02,
-    hallucination_increase_max: Annotated[
-        float, typer.Option(help="Allowed hallucination rate increase.")
-    ] = 0.05,
 ) -> None:
     """Compare baseline vs candidate eval summaries and fail on regressions."""
 
@@ -668,10 +677,13 @@ def compare_eval_command(
     thresholds = EvaluationRegressionThresholds(
         root_cause_correctness_drop_max=root_cause_drop_max,
         impacted_service_correctness_drop_max=impacted_drop_max,
-        factual_grounding_drop_max=grounding_drop_max,
+        service_entity_precision_drop_max=service_entity_precision_drop_max,
+        unexpected_service_mention_rate_increase_max=unexpected_service_mention_increase_max,
+        factual_claim_support_rate_drop_max=factual_claim_support_drop_max,
+        unsupported_factual_claim_rate_increase_max=unsupported_factual_claim_increase_max,
+        contradictory_factual_claim_rate_increase_max=contradictory_factual_claim_increase_max,
         citation_coverage_drop_max=citation_coverage_drop_max,
         report_completeness_drop_max=completeness_drop_max,
-        hallucination_rate_increase_max=hallucination_increase_max,
     )
     comparison = compare_evaluation_summaries(
         baseline_summary_path=baseline_summary_path,

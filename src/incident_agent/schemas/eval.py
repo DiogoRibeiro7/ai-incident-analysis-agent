@@ -83,10 +83,17 @@ class EvaluationMetrics(BaseModel):
 
     root_cause_correctness: float
     impacted_service_correctness: float
-    factual_grounding: float
+    service_entity_precision: float
+    unexpected_service_mention_rate: float
     citation_coverage: float
     retrieval_relevance: float = 0.0
-    hallucination_rate: float
+    factual_claim_count: int = 0
+    supported_factual_claim_count: int = 0
+    unsupported_factual_claim_count: int = 0
+    contradictory_factual_claim_count: int = 0
+    factual_claim_support_rate: float = 0.0
+    unsupported_factual_claim_rate: float = 0.0
+    contradictory_factual_claim_rate: float = 0.0
     report_completeness: float
     latency_seconds: float
     token_usage: int | None = None
@@ -114,10 +121,17 @@ class EvaluationSummary(BaseModel):
     success_rate: float
     root_cause_correctness: float
     impacted_service_correctness: float
-    factual_grounding: float
+    service_entity_precision: float
+    unexpected_service_mention_rate: float
     citation_coverage: float
     retrieval_relevance: float = 0.0
-    hallucination_rate: float
+    factual_claim_count: int = 0
+    supported_factual_claim_count: int = 0
+    unsupported_factual_claim_count: int = 0
+    contradictory_factual_claim_count: int = 0
+    factual_claim_support_rate: float = 0.0
+    unsupported_factual_claim_rate: float = 0.0
+    contradictory_factual_claim_rate: float = 0.0
     report_completeness: float
     latency_seconds: float
     average_token_usage: float | None = None
@@ -139,10 +153,13 @@ class EvaluationRegressionThresholds(BaseModel):
     success_rate_drop_max: float = 0.0
     root_cause_correctness_drop_max: float = 0.02
     impacted_service_correctness_drop_max: float = 0.02
-    factual_grounding_drop_max: float = 0.02
+    service_entity_precision_drop_max: float = 0.02
+    unexpected_service_mention_rate_increase_max: float = 0.05
+    factual_claim_support_rate_drop_max: float = 0.02
+    unsupported_factual_claim_rate_increase_max: float = 0.05
+    contradictory_factual_claim_rate_increase_max: float = 0.0
     citation_coverage_drop_max: float = 0.02
     report_completeness_drop_max: float = 0.02
-    hallucination_rate_increase_max: float = 0.05
 
 
 class EvaluationComparisonFinding(BaseModel):
