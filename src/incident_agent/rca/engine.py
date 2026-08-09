@@ -51,7 +51,7 @@ def perform_rca(
         ranked = rank_evidence(incident.evidence)
         signals = extract_contributing_signals(ranked)
 
-        primary_service, confidence, ambiguities = score_root_candidates(
+        primary_service, root_cause_support, ambiguities = score_root_candidates(
             evidence=ranked,
             impacted_services=incident.impacted_services,
             dependency_graph=dependency_graph,
@@ -76,7 +76,7 @@ def perform_rca(
         hypothesis = RootCauseHypothesis(
             incident_id=incident.incident_id,
             suspected_root_cause_service=primary_service,
-            confidence_score=round(confidence, 4),
+            root_cause_support=round(root_cause_support, 4),
             contributing_signals=signals,
             impacted_downstream_services=downstream,
             unresolved_ambiguities=ambiguities,

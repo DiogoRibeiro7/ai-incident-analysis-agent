@@ -263,7 +263,7 @@ def _build_support_entries(
             support_id="hypothesis",
             text=(
                 f"root cause {root_cause_hypothesis.suspected_root_cause_service} "
-                f"confidence {root_cause_hypothesis.confidence_score} "
+                f"relative support {root_cause_hypothesis.root_cause_support} "
                 f"impacted {' '.join(root_cause_hypothesis.impacted_downstream_services)} "
                 f"{root_cause_hypothesis.rationale}"
             ),

@@ -24,7 +24,7 @@ If multiple root-cause candidates are plausible, include uncertainty.
 Task: Explain the most likely root cause.
 Output guidance:
 - Cite top supporting evidence.
-- Mention alternative explanations when confidence is limited.
+- Mention alternative explanations when support is limited.
 - Keep facts separate from inference.
 """
 

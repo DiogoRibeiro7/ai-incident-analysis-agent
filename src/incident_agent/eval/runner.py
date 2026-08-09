@@ -312,7 +312,7 @@ def _run_heuristic_mode(
         incident_summary="Heuristic RCA indicates an incident affecting service health.",
         root_cause_explanation=(
             f"Most likely root cause is {hypothesis.suspected_root_cause_service} "
-            f"(confidence {hypothesis.confidence_score:.2f})."
+            f"(relative support {hypothesis.root_cause_support:.2f})."
         ),
         executive_summary="Incident detected and triaged using deterministic heuristics.",
         engineering_handoff=hypothesis.rationale,
