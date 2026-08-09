@@ -48,6 +48,8 @@ curl -X POST http://localhost:8000/analyze-pipeline \
 - Artifacts are persisted on host at `./artifacts`.
 - Config and data are mounted read-only from `./configs` and `./data`.
 - API container exposes port `8000` by default (`API_PORT` in `.env`).
+- The default provider mode is `mock`, so local and Docker runs do not require
+  external credentials.
 - Set `INCIDENT_AGENT_OPENAI_API_KEY` in `.env` only when using
   `llm.provider=openai`. The generic `OPENAI_API_KEY` variable is ignored.
 - The API is intended for local or trusted-network use. It does not implement
