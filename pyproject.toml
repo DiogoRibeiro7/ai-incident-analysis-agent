@@ -1,6 +1,6 @@
 [project]
 name = "ai-incident-analysis-agent"
-version = "0.2.0"
+version = "0.2.1"
 description = "AI agent scaffold for incident analysis over logs and metrics."
 readme = "README.md"
 requires-python = ">=3.12,<4.0"

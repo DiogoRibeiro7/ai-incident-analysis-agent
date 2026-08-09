@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is loosely based on Keep a Changelog and uses repository-focused release notes.
 
+## [0.2.1] - 2026-08-09
+
+### Added
+
+- Repository professionalism files for contribution consistency, citation, support, conduct, ownership, and pull-request review.
+
+### Changed
+
+- README rewritten around a clearer project pitch, quick-start path, workflow guide, quality gates, and documentation index.
+- Project metadata moved to modern PEP 621 configuration.
+- Release, citation, Zenodo, and package metadata synchronized.
+
 ## [0.2.0] - 2026-08-09
 
 ### Added
