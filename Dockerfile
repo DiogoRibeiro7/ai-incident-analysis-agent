@@ -15,13 +15,15 @@ RUN apt-get update \
 RUN pip install "poetry==${POETRY_VERSION}"
 
 COPY pyproject.toml poetry.lock* ./
-RUN poetry install --only main --no-interaction --no-ansi
+RUN poetry install --only main --no-root --no-interaction --no-ansi
 
+COPY README.md ./
 COPY src ./src
+RUN poetry install --only-root --no-interaction --no-ansi
+
 COPY configs ./configs
 COPY data ./data
 COPY eval ./eval
-COPY README.md ./
 
 EXPOSE 8000
 

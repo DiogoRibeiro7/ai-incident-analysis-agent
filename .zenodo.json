@@ -1,6 +1,6 @@
 {
   "title": "AI Incident Analysis Agent",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "upload_type": "software",
   "description": "Incident analysis system for logs and metrics. It ingests operational data, normalizes it into aligned time windows, detects anomalies, correlates incident candidates, runs deterministic root-cause analysis, and generates structured reports through a provider abstraction.",
   "creators": [

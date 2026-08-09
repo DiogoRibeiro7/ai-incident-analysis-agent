@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is loosely based on Keep a Changelog and uses repository-focused release notes.
 
+## [0.2.3] - 2026-08-09
+
+### Fixed
+
+- Docker builds now copy project packaging inputs before installing the package inside the image.
+
 ## [0.2.2] - 2026-08-09
 
 ### Fixed
