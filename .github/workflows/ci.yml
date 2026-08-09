@@ -27,6 +27,8 @@ jobs:
         run: poetry run ruff check .
       - name: Type check
         run: poetry run mypy src tests
+      - name: Check Markdown links
+        run: poetry run pytest --no-cov tests/unit/test_markdown_links.py
 
   tests:
     name: tests-and-coverage
