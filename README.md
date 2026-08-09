@@ -315,7 +315,8 @@ This makes repeated runs safer for demos and easier to debug.
 ## Limitations
 
 Current limitations are explicit:
-- ingestion is local-file based; there are no live observability platform connectors yet
+- log ingestion is local-file based; metrics can come from local files or Prometheus
+- CloudWatch, Datadog, and Grafana live metrics connectors are not included
 - RCA is heuristic, not learned
 - OpenAI is the only real provider currently supported
 - deployment packaging is demo-oriented; production hardening is not included
@@ -325,7 +326,7 @@ Current limitations are explicit:
 Logical next steps for the project are:
 - add live connectors for systems like Grafana, CloudWatch, or Datadog
 - improve evidence ranking and output validation policies
-- add deployment manifests and operational packaging
+- add production deployment manifests
 - extend provider support and richer evaluation metrics
 
 ## Repository Layout

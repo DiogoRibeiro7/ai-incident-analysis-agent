@@ -12,26 +12,33 @@ This file tracks the shorter, reality-based roadmap for the repository. It inten
 - dependency-aware incident correlation
 - heuristic RCA artifacts and evidence ranking
 - prompt rendering from structured RCA inputs
+- retrieval over runbooks, historical incidents, and Grafana annotation exports
+- grounding validation over generated facts and inferences
 - mock and OpenAI-backed provider support
+- provider token, latency, and estimated cost accounting
 - end-to-end pipeline orchestration with persisted artifacts
 - operator-focused CLI commands
 - evaluation harness and synthetic benchmark generation
 - structured observability and fault-tolerant pipeline execution
 - report export in JSON, Markdown, and HTML
+- human review workflow for report status transitions
+- approved-report webhook export with outbound URL policy checks
+- Prometheus metrics ingestion through `query_range`
+- demo Docker packaging with Compose and GHCR release images
+- file-path allowlists and configuration security warnings
 
 ## Next likely improvements
 
-- retrieval over runbooks and historical incidents
-- stronger evidence ranking and output validation policies
-- token and cost accounting
-- live observability platform connectors
-- deployment packaging and production manifests
+- stronger evidence ranking and stricter output validation policies
+- additional live observability platform connectors
+- production deployment manifests
+- ticketing and incident-management integrations
+- broader provider support
 
 ## Not implemented yet
 
 - CloudWatch connector
-- Grafana / Prometheus connector
+- Grafana live metrics connector
 - Datadog connector
 - incident ticket creation integration
-- human review workflow
-- deployment manifests
+- production deployment manifests
