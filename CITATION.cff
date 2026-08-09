@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata in this file."
 title: "AI Incident Analysis Agent"
-version: "0.2.3"
+version: "0.2.4"
 type: software
 authors:
   - family-names: Ribeiro

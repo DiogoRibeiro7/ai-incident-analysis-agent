@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is loosely based on Keep a Changelog and uses repository-focused release notes.
 
+## [0.2.4] - 2026-08-09
+
+### Fixed
+
+- Refreshed vulnerable transitive dependencies in the lockfile by updating `idna` to 3.18 and `Pygments` to 2.20.0.
+
 ## [0.2.3] - 2026-08-09
 
 ### Fixed
