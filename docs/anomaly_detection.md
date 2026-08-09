@@ -19,6 +19,9 @@ Main package: `src/incident_agent/anomaly_detection/`
 
 HTTP error-rate metrics are detected from the `http_error_rate` signal only. ERROR and
 CRITICAL logs are zero-filled as count series and detected separately as log-burst evidence.
+Missing-bucket entries are consumed only according to their metric policy: traffic can use
+synthetic zero values, CPU/latency unknowns are skipped, and missing heartbeat contributes an
+availability signal.
 
 ## Detection approach
 

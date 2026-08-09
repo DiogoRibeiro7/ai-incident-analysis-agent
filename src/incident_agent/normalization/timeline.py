@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 from incident_agent.core.settings import load_settings_from_yaml
 from incident_agent.schemas.events import LogEvent, MetricPoint
 from incident_agent.schemas.timeline import (
+    MissingBucketPolicy,
     TimelineAlignmentResult,
     TimelineBucketFeatures,
     TimelineEvent,
@@ -36,6 +37,20 @@ class NormalizationConfig(BaseModel):
     )
     service_failure_metrics: set[str] = Field(
         default_factory=lambda: {"upstream_failure_rate", "service_unavailable"}
+    )
+    metric_missing_policies: dict[str, MissingBucketPolicy] = Field(
+        default_factory=lambda: {
+            "request_count": MissingBucketPolicy.ZERO,
+            "traffic": MissingBucketPolicy.ZERO,
+            "throughput": MissingBucketPolicy.ZERO,
+            "rps": MissingBucketPolicy.ZERO,
+            "heartbeat": MissingBucketPolicy.UNAVAILABLE,
+            "cpu_usage": MissingBucketPolicy.MISSING,
+            "cpu_percent": MissingBucketPolicy.MISSING,
+            "request_latency_ms": MissingBucketPolicy.MISSING,
+            "latency_ms": MissingBucketPolicy.MISSING,
+            "p95_latency_ms": MissingBucketPolicy.MISSING,
+        }
     )
 
     @field_validator("bucket_size_minutes")
@@ -63,6 +78,8 @@ def align_events_to_timeline(
     metrics: list[MetricPoint],
     *,
     config: NormalizationConfig,
+    analysis_start: datetime | None = None,
+    analysis_end: datetime | None = None,
 ) -> TimelineAlignmentResult:
     """Normalize timestamps, sort events, assign buckets, and aggregate features."""
 
@@ -97,6 +114,16 @@ def align_events_to_timeline(
             )
         )
 
+    if events or analysis_start is not None or analysis_end is not None:
+        events.extend(
+            _missing_bucket_events(
+                events=events,
+                config=config,
+                analysis_start=analysis_start,
+                analysis_end=analysis_end,
+            )
+        )
+
     ordered_events = sorted(
         events,
         key=lambda item: (
@@ -111,6 +138,14 @@ def align_events_to_timeline(
     buckets: dict[datetime, list[TimelineEvent]] = {}
     for event in ordered_events:
         buckets.setdefault(event.bucket_start, []).append(event)
+
+    for bucket_start in _bucket_grid(
+        events=ordered_events,
+        config=config,
+        analysis_start=analysis_start,
+        analysis_end=analysis_end,
+    ):
+        buckets.setdefault(bucket_start, [])
 
     ordered_buckets = [
         _summarize_bucket(bucket_start, bucket_events, config)
@@ -133,6 +168,32 @@ def _bucket_floor(timestamp: datetime, bucket_size_minutes: int) -> datetime:
     return datetime.fromtimestamp(floored_seconds, tz=UTC)
 
 
+def _bucket_grid(
+    *,
+    events: list[TimelineEvent],
+    config: NormalizationConfig,
+    analysis_start: datetime | None,
+    analysis_end: datetime | None,
+) -> list[datetime]:
+    start_candidates = [event.bucket_start for event in events]
+    end_candidates = [event.bucket_start for event in events]
+    if analysis_start is not None:
+        start_candidates.append(_bucket_floor(_to_utc(analysis_start), config.bucket_size_minutes))
+    if analysis_end is not None:
+        end_candidates.append(_bucket_floor(_to_utc(analysis_end), config.bucket_size_minutes))
+    if not start_candidates or not end_candidates:
+        return []
+
+    current = min(start_candidates)
+    final = max(end_candidates)
+    step = timedelta(minutes=config.bucket_size_minutes)
+    buckets = []
+    while current <= final:
+        buckets.append(current)
+        current += step
+    return buckets
+
+
 def _log_signal(severity: str) -> TimelineSignal:
     if severity == "ERROR":
         return "error_log_count"
@@ -149,6 +210,8 @@ def _metric_signal(metric_name: str, config: NormalizationConfig) -> TimelineSig
     http_error_rate_metrics = {name.lower() for name in config.http_error_rate_metrics}
     service_failure_metrics = {name.lower() for name in config.service_failure_metrics}
 
+    if "heartbeat" in lowered:
+        return "heartbeat"
     if lowered in latency_metrics or "latency" in lowered:
         return "latency"
     if lowered in cpu_metrics or "cpu" in lowered:
@@ -162,13 +225,79 @@ def _metric_signal(metric_name: str, config: NormalizationConfig) -> TimelineSig
     return "metric_other"
 
 
+def _missing_bucket_events(
+    *,
+    events: list[TimelineEvent],
+    config: NormalizationConfig,
+    analysis_start: datetime | None,
+    analysis_end: datetime | None,
+) -> list[TimelineEvent]:
+    observed_metric_names_by_service: dict[str, set[str]] = {}
+    observed_metric_keys: set[tuple[datetime, str, str]] = set()
+    for event in events:
+        if event.source != "metric" or event.metric_name is None:
+            continue
+        metric_name = event.metric_name
+        observed_metric_names_by_service.setdefault(event.service, set()).add(metric_name)
+        observed_metric_keys.add((event.bucket_start, event.service, metric_name.lower()))
+
+    synthetic_events: list[TimelineEvent] = []
+    for bucket_start in _bucket_grid(
+        events=events,
+        config=config,
+        analysis_start=analysis_start,
+        analysis_end=analysis_end,
+    ):
+        for service, metric_names in sorted(observed_metric_names_by_service.items()):
+            for metric_name in sorted(metric_names):
+                if (bucket_start, service, metric_name.lower()) in observed_metric_keys:
+                    continue
+                policy = _missing_policy(metric_name, config)
+                value = _missing_value(policy)
+                synthetic_events.append(
+                    TimelineEvent(
+                        timestamp=bucket_start,
+                        bucket_start=bucket_start,
+                        service=service,
+                        source="metric",
+                        signal=_metric_signal(metric_name, config),
+                        value=value,
+                        metric_name=metric_name,
+                        synthetic=True,
+                        missing_policy=policy,
+                    )
+                )
+    return synthetic_events
+
+
+def _missing_policy(metric_name: str, config: NormalizationConfig) -> MissingBucketPolicy:
+    lowered = metric_name.lower()
+    policy_map = {name.lower(): policy for name, policy in config.metric_missing_policies.items()}
+    if lowered in policy_map:
+        return policy_map[lowered]
+    for name, policy in policy_map.items():
+        if name in lowered:
+            return policy
+    return MissingBucketPolicy.MISSING
+
+
+def _missing_value(policy: MissingBucketPolicy) -> float | None:
+    if policy == MissingBucketPolicy.ZERO:
+        return 0.0
+    if policy == MissingBucketPolicy.UNAVAILABLE:
+        return 1.0
+    return None
+
+
 def _summarize_bucket(
     bucket_start: datetime,
     events: list[TimelineEvent],
     config: NormalizationConfig,
 ) -> TimelineBucketFeatures:
     bucket_end = bucket_start + timedelta(minutes=config.bucket_size_minutes)
-    log_events = [event for event in events if event.source == "log"]
+    observed_events = [event for event in events if not event.synthetic]
+    synthetic_events = [event for event in events if event.synthetic]
+    log_events = [event for event in observed_events if event.source == "log"]
     error_log_count = sum(1 for event in log_events if event.signal == "error_log_count")
     critical_log_count = sum(1 for event in log_events if event.signal == "critical_log_count")
     error_count = error_log_count + critical_log_count
@@ -183,16 +312,28 @@ def _summarize_bucket(
     return TimelineBucketFeatures(
         bucket_start=bucket_start,
         bucket_end=bucket_end,
-        event_count=len(events),
+        event_count=len(observed_events),
+        synthetic_event_count=len(synthetic_events),
         log_count=len(log_events),
         error_count=error_count,
         error_log_count=error_log_count,
         critical_log_count=critical_log_count,
         warn_count=warn_count,
-        unique_services_affected=len({event.service for event in events}),
+        unique_services_affected=len({event.service for event in observed_events}),
         log_spike=len(log_events) >= config.log_spike_threshold,
         error_burst=error_count >= config.error_burst_threshold,
         service_failure_signals=service_failure_signals,
+        zero_filled_metric_count=sum(
+            1 for event in synthetic_events if event.missing_policy == MissingBucketPolicy.ZERO
+        ),
+        unavailable_missing_metric_count=sum(
+            1
+            for event in synthetic_events
+            if event.missing_policy == MissingBucketPolicy.UNAVAILABLE
+        ),
+        unknown_missing_metric_count=sum(
+            1 for event in synthetic_events if event.missing_policy == MissingBucketPolicy.MISSING
+        ),
         http_error_rate=mean(http_error_rate_values) if http_error_rate_values else None,
         p95_latency=_percentile(latency_values, percentile=95),
         cpu_mean=mean(cpu_values) if cpu_values else None,

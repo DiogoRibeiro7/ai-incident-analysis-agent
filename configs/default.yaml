@@ -69,6 +69,17 @@ normalization:
   service_failure_metrics:
     - upstream_failure_rate
     - service_unavailable
+  metric_missing_policies:
+    request_count: zero
+    traffic: zero
+    throughput: zero
+    rps: zero
+    heartbeat: unavailable
+    cpu_usage: missing
+    cpu_percent: missing
+    request_latency_ms: missing
+    latency_ms: missing
+    p95_latency_ms: missing
 anomaly_detection:
   error_rate:
     min_support: 3
