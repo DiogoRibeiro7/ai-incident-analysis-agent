@@ -9,14 +9,15 @@
 5. RCA layer ranks evidence, summarizes incident features, and produces root-cause hypotheses.
 6. Prompt layer prepares grounded context.
 7. Prompt template renderer builds modular report prompts from RCA artifacts.
-8. LLM provider abstraction selects mock or OpenAI backends for structured report generation.
-9. Validation layer ensures a predictable response schema.
-10. Pipeline orchestrator persists normalized data, anomalies, incidents, RCA artifacts, and final reports.
-11. Delivery layer exposes results through CLI and API.
+8. Optional retrieval adds cited runbook, historical incident, or Grafana annotation context.
+9. LLM provider abstraction selects mock or OpenAI backends for structured report generation.
+10. Validation layer checks response schema and generated claim grounding.
+11. Pipeline orchestrator persists normalized data, anomalies, incidents, RCA artifacts, grounding summaries, and final reports.
+12. Delivery layer exposes results through CLI, API, file exports, review transitions, and approved-report webhooks.
 
 ## Potential extension points
 
-- Real observability connectors under `clients/`
-- Retrieval over runbooks and previous incidents
-- Multi-stage agent workflows
-- Evaluation and observability for prompt and model quality
+- Additional observability connectors for CloudWatch, Datadog, and Grafana metrics APIs
+- Richer retrieval ranking and metadata filters
+- Multi-stage review and remediation workflows
+- Production deployment manifests and authentication layers
