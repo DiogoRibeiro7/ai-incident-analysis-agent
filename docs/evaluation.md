@@ -24,13 +24,20 @@ Measure incident analysis quality across benchmark scenarios and compare output 
 Per scenario and mode, the harness records:
 - root-cause correctness
 - impacted service correctness
-- factual grounding
+- service entity precision
+- unexpected service mention rate
 - claim citation coverage
-- hallucination rate
+- factual claim counts by validation status
+- factual claim support, unsupported, and contradictory rates
 - report completeness
 - latency (seconds)
 - token usage
 - estimated cost (USD)
+
+Claim-grounding rates are derived from grounding validation over generated report
+prose. When a report has zero factual claims, claim support, unsupported, and
+contradictory rates are recorded as `0.0` so unevaluable output is not silently
+treated as perfectly grounded.
 
 ## Artifacts
 

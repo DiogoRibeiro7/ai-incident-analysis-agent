@@ -7,11 +7,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from statistics import mean
 from time import perf_counter
+from typing import NamedTuple
 
 import yaml
 
-from incident_agent.core.settings import load_settings_from_yaml
+from incident_agent.core.settings import load_grounding_config, load_settings_from_yaml
 from incident_agent.eval.benchmarks import load_benchmark_scenarios
+from incident_agent.grounding.validate import validate_report_grounding
 from incident_agent.schemas.eval import (
     BenchmarkScenario,
     EvaluationComparisonFinding,
@@ -25,8 +27,19 @@ from incident_agent.schemas.eval import (
     evaluation_modes,
 )
 from incident_agent.schemas.final_report import FinalIncidentReport
+from incident_agent.schemas.grounding import ClaimType, ClaimValidationStatus, GroundingSummary
 from incident_agent.services.pipeline import run_pipeline_from_files
 from incident_agent.services.rca import run_rca_from_files
+
+
+class ClaimGroundingMetricValues(NamedTuple):
+    factual_claim_count: int
+    supported_factual_claim_count: int
+    unsupported_factual_claim_count: int
+    contradictory_factual_claim_count: int
+    factual_claim_support_rate: float
+    unsupported_factual_claim_rate: float
+    contradictory_factual_claim_rate: float
 
 
 def run_evaluation(
@@ -84,6 +97,7 @@ def _evaluate_scenario_mode(
                 incident_count,
                 token_usage,
                 estimated_cost,
+                grounding_summary,
             ) = _run_heuristic_mode(
                 scenario=scenario,
                 config_path=config_path,
@@ -96,6 +110,7 @@ def _evaluate_scenario_mode(
                 incident_count,
                 token_usage,
                 estimated_cost,
+                grounding_summary,
             ) = _run_pipeline_mode(
                 scenario=scenario,
                 config_path=config_path,
@@ -111,6 +126,7 @@ def _evaluate_scenario_mode(
                 incident_count,
                 token_usage,
                 estimated_cost,
+                grounding_summary,
             ) = _run_pipeline_mode(
                 scenario=scenario,
                 config_path=config_path,
@@ -126,6 +142,7 @@ def _evaluate_scenario_mode(
                 incident_count,
                 token_usage,
                 estimated_cost,
+                grounding_summary,
             ) = _run_pipeline_mode(
                 scenario=scenario,
                 config_path=config_path,
@@ -141,6 +158,7 @@ def _evaluate_scenario_mode(
                 incident_count,
                 token_usage,
                 estimated_cost,
+                grounding_summary,
             ) = _run_pipeline_mode(
                 scenario=scenario,
                 config_path=config_path,
@@ -155,9 +173,17 @@ def _evaluate_scenario_mode(
         metrics = EvaluationMetrics(
             root_cause_correctness=0.0,
             impacted_service_correctness=0.0,
-            factual_grounding=0.0,
+            service_entity_precision=0.0,
+            unexpected_service_mention_rate=1.0,
             citation_coverage=0.0,
-            hallucination_rate=1.0,
+            retrieval_relevance=0.0,
+            factual_claim_count=0,
+            supported_factual_claim_count=0,
+            unsupported_factual_claim_count=0,
+            contradictory_factual_claim_count=0,
+            factual_claim_support_rate=0.0,
+            unsupported_factual_claim_rate=0.0,
+            contradictory_factual_claim_rate=0.0,
             report_completeness=0.0,
             latency_seconds=round(latency, 4),
             token_usage=None,
@@ -179,6 +205,7 @@ def _evaluate_scenario_mode(
         predicted_root=predicted_root,
         impacted_services=impacted_services,
         mode=mode,
+        grounding_summary=grounding_summary,
         latency_seconds=latency,
         token_usage=token_usage,
         estimated_cost_usd=estimated_cost,
@@ -198,7 +225,15 @@ def _run_heuristic_mode(
     *,
     scenario: BenchmarkScenario,
     config_path: str,
-) -> tuple[FinalIncidentReport, str | None, list[str], int, int | None, float | None]:
+) -> tuple[
+    FinalIncidentReport,
+    str | None,
+    list[str],
+    int,
+    int | None,
+    float | None,
+    GroundingSummary | None,
+]:
     rca = run_rca_from_files(
         log_path=scenario.logs_path,
         metric_path=scenario.metrics_path,
@@ -217,7 +252,7 @@ def _run_heuristic_mode(
             inferences=[],
             uncertainties=["No incidents were produced by correlation and RCA."],
         )
-        return report, None, [], 0, None, None
+        return report, None, [], 0, None, None, None
 
     hypothesis = rca.hypotheses[0]
     summary = rca.summaries[0]
@@ -241,6 +276,13 @@ def _run_heuristic_mode(
         inferences=[hypothesis.rationale],
         uncertainties=hypothesis.unresolved_ambiguities,
     )
+    grounding_summary = validate_report_grounding(
+        report=report,
+        evidence_bundle=rca.bundles[0],
+        root_cause_hypothesis=hypothesis,
+        retrieved_context=[],
+        config=load_grounding_config(config_path),
+    )
     return (
         report,
         hypothesis.suspected_root_cause_service,
@@ -248,6 +290,7 @@ def _run_heuristic_mode(
         len(rca.hypotheses),
         None,
         None,
+        grounding_summary,
     )
 
 
@@ -258,7 +301,15 @@ def _run_pipeline_mode(
     run_dir: Path,
     provider: str,
     retrieval_enabled: bool,
-) -> tuple[FinalIncidentReport, str | None, list[str], int, int | None, float | None]:
+) -> tuple[
+    FinalIncidentReport,
+    str | None,
+    list[str],
+    int,
+    int | None,
+    float | None,
+    GroundingSummary | None,
+]:
     effective_config = _write_config_with_provider(
         config_path=config_path,
         provider=provider,
@@ -300,9 +351,14 @@ def _run_pipeline_mode(
             result.incident_count,
             result.llm_usage.total_tokens,
             result.llm_usage.total_estimated_cost_usd,
+            None,
         )
 
     report = result.final_reports[0]
+    grounding_summary = next(
+        (item for item in result.grounding_summaries if item.incident_id == report.incident_id),
+        None,
+    )
     return (
         report,
         _extract_root_service(report),
@@ -310,6 +366,7 @@ def _run_pipeline_mode(
         result.incident_count,
         result.llm_usage.total_tokens,
         result.llm_usage.total_estimated_cost_usd,
+        grounding_summary,
     )
 
 
@@ -354,6 +411,7 @@ def _score_report(
     predicted_root: str | None,
     impacted_services: list[str],
     mode: EvaluationMode,
+    grounding_summary: GroundingSummary | None,
     latency_seconds: float,
     token_usage: int | None,
     estimated_cost_usd: float | None,
@@ -389,11 +447,14 @@ def _score_report(
         "worker-service",
     ]
     mentioned_services = {service for service in service_tokens if service in text}
-    hallucinated = {service for service in mentioned_services if service not in known_services}
-    hallucination_rate = (
-        len(hallucinated) / max(len(mentioned_services), 1) if mentioned_services else 0.0
+    unexpected_services = {
+        service for service in mentioned_services if service not in known_services
+    }
+    unexpected_service_mention_rate = (
+        len(unexpected_services) / max(len(mentioned_services), 1) if mentioned_services else 0.0
     )
-    factual_grounding = max(0.0, 1.0 - hallucination_rate)
+    service_entity_precision = max(0.0, 1.0 - unexpected_service_mention_rate)
+    claim_metrics = _claim_grounding_metrics(grounding_summary)
 
     completeness_fields = [
         bool(report.incident_summary.strip()),
@@ -421,14 +482,65 @@ def _score_report(
     return EvaluationMetrics(
         root_cause_correctness=round(root_correct, 4),
         impacted_service_correctness=round(impacted_score, 4),
-        factual_grounding=round(factual_grounding, 4),
+        service_entity_precision=round(service_entity_precision, 4),
+        unexpected_service_mention_rate=round(unexpected_service_mention_rate, 4),
         citation_coverage=round(citation_coverage, 4),
         retrieval_relevance=round(retrieval_relevance, 4),
-        hallucination_rate=round(hallucination_rate, 4),
+        factual_claim_count=claim_metrics.factual_claim_count,
+        supported_factual_claim_count=claim_metrics.supported_factual_claim_count,
+        unsupported_factual_claim_count=claim_metrics.unsupported_factual_claim_count,
+        contradictory_factual_claim_count=claim_metrics.contradictory_factual_claim_count,
+        factual_claim_support_rate=claim_metrics.factual_claim_support_rate,
+        unsupported_factual_claim_rate=claim_metrics.unsupported_factual_claim_rate,
+        contradictory_factual_claim_rate=claim_metrics.contradictory_factual_claim_rate,
         report_completeness=round(completeness, 4),
         latency_seconds=round(latency_seconds, 4),
         token_usage=token_usage,
         estimated_cost_usd=estimated_cost_usd,
+    )
+
+
+def _claim_grounding_metrics(
+    grounding_summary: GroundingSummary | None,
+) -> ClaimGroundingMetricValues:
+    if grounding_summary is None:
+        return ClaimGroundingMetricValues(
+            factual_claim_count=0,
+            supported_factual_claim_count=0,
+            unsupported_factual_claim_count=0,
+            contradictory_factual_claim_count=0,
+            factual_claim_support_rate=0.0,
+            unsupported_factual_claim_rate=0.0,
+            contradictory_factual_claim_rate=0.0,
+        )
+
+    factual_claims = [
+        item for item in grounding_summary.claims if item.claim_type is ClaimType.FACT
+    ]
+    factual_claim_count = len(factual_claims)
+    supported = sum(1 for item in factual_claims if item.status is ClaimValidationStatus.SUPPORTED)
+    unsupported = sum(
+        1 for item in factual_claims if item.status is ClaimValidationStatus.UNSUPPORTED
+    )
+    contradictory = sum(
+        1 for item in factual_claims if item.status is ClaimValidationStatus.CONTRADICTORY
+    )
+    if factual_claim_count == 0:
+        support_rate = 0.0
+        unsupported_rate = 0.0
+        contradictory_rate = 0.0
+    else:
+        support_rate = supported / factual_claim_count
+        unsupported_rate = unsupported / factual_claim_count
+        contradictory_rate = contradictory / factual_claim_count
+    return ClaimGroundingMetricValues(
+        factual_claim_count=factual_claim_count,
+        supported_factual_claim_count=supported,
+        unsupported_factual_claim_count=unsupported,
+        contradictory_factual_claim_count=contradictory,
+        factual_claim_support_rate=round(support_rate, 4),
+        unsupported_factual_claim_rate=round(unsupported_rate, 4),
+        contradictory_factual_claim_rate=round(contradictory_rate, 4),
     )
 
 
@@ -445,6 +557,28 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
         if not scoped:
             continue
         if successful:
+            factual_claim_count = sum(item.metrics.factual_claim_count for item in successful)
+            supported_factual_claim_count = sum(
+                item.metrics.supported_factual_claim_count for item in successful
+            )
+            unsupported_factual_claim_count = sum(
+                item.metrics.unsupported_factual_claim_count for item in successful
+            )
+            contradictory_factual_claim_count = sum(
+                item.metrics.contradictory_factual_claim_count for item in successful
+            )
+            if factual_claim_count == 0:
+                factual_claim_support_rate = 0.0
+                unsupported_factual_claim_rate = 0.0
+                contradictory_factual_claim_rate = 0.0
+            else:
+                factual_claim_support_rate = supported_factual_claim_count / factual_claim_count
+                unsupported_factual_claim_rate = (
+                    unsupported_factual_claim_count / factual_claim_count
+                )
+                contradictory_factual_claim_rate = (
+                    contradictory_factual_claim_count / factual_claim_count
+                )
             summary = EvaluationSummary(
                 mode=mode,
                 runs=len(scoped),
@@ -455,8 +589,12 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
                 impacted_service_correctness=round(
                     mean(item.metrics.impacted_service_correctness for item in successful), 4
                 ),
-                factual_grounding=round(
-                    mean(item.metrics.factual_grounding for item in successful),
+                service_entity_precision=round(
+                    mean(item.metrics.service_entity_precision for item in successful),
+                    4,
+                ),
+                unexpected_service_mention_rate=round(
+                    mean(item.metrics.unexpected_service_mention_rate for item in successful),
                     4,
                 ),
                 citation_coverage=round(
@@ -467,10 +605,13 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
                     mean(item.metrics.retrieval_relevance for item in successful),
                     4,
                 ),
-                hallucination_rate=round(
-                    mean(item.metrics.hallucination_rate for item in successful),
-                    4,
-                ),
+                factual_claim_count=factual_claim_count,
+                supported_factual_claim_count=supported_factual_claim_count,
+                unsupported_factual_claim_count=unsupported_factual_claim_count,
+                contradictory_factual_claim_count=contradictory_factual_claim_count,
+                factual_claim_support_rate=round(factual_claim_support_rate, 4),
+                unsupported_factual_claim_rate=round(unsupported_factual_claim_rate, 4),
+                contradictory_factual_claim_rate=round(contradictory_factual_claim_rate, 4),
                 report_completeness=round(
                     mean(item.metrics.report_completeness for item in successful), 4
                 ),
@@ -497,10 +638,17 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
                 success_rate=0.0,
                 root_cause_correctness=0.0,
                 impacted_service_correctness=0.0,
-                factual_grounding=0.0,
+                service_entity_precision=0.0,
+                unexpected_service_mention_rate=1.0,
                 citation_coverage=0.0,
                 retrieval_relevance=0.0,
-                hallucination_rate=1.0,
+                factual_claim_count=0,
+                supported_factual_claim_count=0,
+                unsupported_factual_claim_count=0,
+                contradictory_factual_claim_count=0,
+                factual_claim_support_rate=0.0,
+                unsupported_factual_claim_rate=0.0,
+                contradictory_factual_claim_rate=0.0,
                 report_completeness=0.0,
                 latency_seconds=0.0,
                 average_token_usage=None,
@@ -527,10 +675,11 @@ def _summary_markdown(result: EvaluationResult) -> str:
     header = (
         "# Evaluation Summary\n\n"
         f"Run ID: `{result.run_id}`\n\n"
-        "| Mode | Runs | Success | Root Cause | Impacted Services | Grounding | "
-        "Citation Coverage | Retrieval Relevance | Hallucination | "
-        "Completeness | Latency (s) | Avg Tokens | Total Cost (USD) |\n"
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
+        "| Mode | Runs | Success | Root Cause | Impacted Services | Service Precision | "
+        "Unexpected Services | Claim Support | Unsupported Claims | Contradictory Claims | "
+        "Citation Coverage | Retrieval Relevance | Completeness | Latency (s) | "
+        "Avg Tokens | Total Cost (USD) |\n"
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
     )
     lines = []
     for summary in result.summaries:
@@ -546,9 +695,12 @@ def _summary_markdown(result: EvaluationResult) -> str:
             "| "
             f"{summary.mode.value} | {summary.runs} | {summary.success_rate:.2f} | "
             f"{summary.root_cause_correctness:.2f} | {summary.impacted_service_correctness:.2f} | "
-            f"{summary.factual_grounding:.2f} | {summary.citation_coverage:.2f} | "
-            f"{summary.retrieval_relevance:.2f} | "
-            f"{summary.hallucination_rate:.2f} | "
+            f"{summary.service_entity_precision:.2f} | "
+            f"{summary.unexpected_service_mention_rate:.2f} | "
+            f"{summary.factual_claim_support_rate:.2f} | "
+            f"{summary.unsupported_factual_claim_rate:.2f} | "
+            f"{summary.contradictory_factual_claim_rate:.2f} | "
+            f"{summary.citation_coverage:.2f} | {summary.retrieval_relevance:.2f} | "
             f"{summary.report_completeness:.2f} | {summary.latency_seconds:.2f} | "
             f"{avg_tokens} | {total_cost} |"
         )
@@ -674,11 +826,18 @@ def _metric_regressions_for_mode(
             "drop",
         ),
         (
-            "factual_grounding",
-            baseline.factual_grounding,
-            candidate.factual_grounding,
-            thresholds.factual_grounding_drop_max,
+            "service_entity_precision",
+            baseline.service_entity_precision,
+            candidate.service_entity_precision,
+            thresholds.service_entity_precision_drop_max,
             "drop",
+        ),
+        (
+            "unexpected_service_mention_rate",
+            baseline.unexpected_service_mention_rate,
+            candidate.unexpected_service_mention_rate,
+            thresholds.unexpected_service_mention_rate_increase_max,
+            "increase",
         ),
         (
             "citation_coverage",
@@ -695,10 +854,24 @@ def _metric_regressions_for_mode(
             "drop",
         ),
         (
-            "hallucination_rate",
-            baseline.hallucination_rate,
-            candidate.hallucination_rate,
-            thresholds.hallucination_rate_increase_max,
+            "factual_claim_support_rate",
+            baseline.factual_claim_support_rate,
+            candidate.factual_claim_support_rate,
+            thresholds.factual_claim_support_rate_drop_max,
+            "drop",
+        ),
+        (
+            "unsupported_factual_claim_rate",
+            baseline.unsupported_factual_claim_rate,
+            candidate.unsupported_factual_claim_rate,
+            thresholds.unsupported_factual_claim_rate_increase_max,
+            "increase",
+        ),
+        (
+            "contradictory_factual_claim_rate",
+            baseline.contradictory_factual_claim_rate,
+            candidate.contradictory_factual_claim_rate,
+            thresholds.contradictory_factual_claim_rate_increase_max,
             "increase",
         ),
     ]
