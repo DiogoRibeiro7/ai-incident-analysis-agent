@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ai-incident-analysis-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI agent scaffold for incident analysis over logs and metrics."
 authors = ["Diogo Ribeiro"]
 readme = "README.md"

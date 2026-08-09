@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is loosely based on Keep a Changelog and uses repository-focused release notes.
 
+## [0.2.0] - 2026-08-09
+
+### Added
+
+- Zenodo metadata for citation and archival workflows.
+- Claim-level grounding validation with citation support and evaluation metrics.
+- Expanded deterministic benchmark corpus with labeled incident, service, and anomaly expectations.
+- Regression coverage for evaluation modes, grounding, retrieval path policy, SSRF handling, normalization semantics, correlation, RCA schema compatibility, environment samples, and Markdown links.
+- Docker/local environment example validation and explicit Docker provider defaults.
+
+### Changed
+
+- Default branch renamed to `main`.
+- Documentation synchronized with implemented Prometheus ingestion, retrieval, review workflow, webhook export, deployment packaging, and security assumptions.
+- RCA support score terminology now uses `root_cause_support` while accepting legacy serialized inputs.
+
+### Fixed
+
+- Evaluation comparison now detects missing or unexpected modes.
+- Retrieval path validation rejects traversal and symlink escapes outside configured allowlists.
+- Outbound URL validation blocks private, loopback, link-local, metadata-service, and redirect destinations unless explicitly trusted.
+- Error-rate metrics and error-log counts remain separate signal units.
+- Missing metric buckets use explicit zero, unavailable, or unknown semantics.
+- Correlation avoids grouping unrelated same-family anomalies and weak dependency chains.
+- OpenAI provider configuration uses the repository-specific key consistently.
+- Repository Markdown links no longer point to machine-local paths.
+
 ## [0.1.0] - 2026-03-23
 
 ### Added
