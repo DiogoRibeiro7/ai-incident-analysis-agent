@@ -1,6 +1,6 @@
 ## Summary
 
-- 
+-
 
 ## Validation
 
@@ -15,4 +15,3 @@
 - [ ] Tests added or updated
 - [ ] Security-sensitive behavior reviewed
 - [ ] Release notes updated when user-facing behavior changes
-

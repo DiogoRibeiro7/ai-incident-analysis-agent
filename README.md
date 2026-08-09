@@ -8,99 +8,82 @@
 [![Release](https://img.shields.io/github/v/release/DiogoRibeiro7/ai-incident-analysis-agent)](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-Incident analysis system for logs and metrics, built as an AI engineering portfolio project. It ingests operational data, normalizes it into aligned time windows, detects anomalies, correlates incident candidates, runs deterministic RCA, and generates structured reports through a provider abstraction.
+An incident-analysis system for logs and metrics that demonstrates practical AI
+systems engineering: typed ingestion, deterministic anomaly detection,
+dependency-aware correlation, root-cause evidence ranking, grounded report
+generation, evaluation gates, and operational hardening.
 
-## Security
+The project is designed to be understandable from a clean clone, runnable without
+external services, and extensible toward real observability backends.
 
-Security reporting and support policy are documented in [SECURITY.md](SECURITY.md).
-Support scope is documented in [SUPPORT.md](SUPPORT.md). Project conduct
-expectations are documented in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+## At a Glance
 
-## Motivation
+| Area | What is included |
+| --- | --- |
+| Inputs | CSV, JSON, JSONL logs and metrics; optional Prometheus `query_range` metrics |
+| Analysis | Timeline normalization, anomaly detection, incident correlation, RCA scoring |
+| Generation | Mock provider by default; optional OpenAI provider; grounded context injection |
+| Outputs | JSON artifacts, Markdown reports, HTML reports, webhook delivery audit logs |
+| Interfaces | Typer CLI, FastAPI service, Docker Compose entrypoint |
+| Quality | pytest coverage gate, ruff, mypy strict mode, CodeQL, dependency review |
+| Evaluation | Static and synthetic benchmarks with regression comparison artifacts |
 
-Most incident response demos jump directly to a model prompt and skip the engineering layers that make incident tooling trustworthy. This project focuses on those layers:
-- typed ingestion and validation
-- deterministic preprocessing and heuristics
-- explicit evidence and RCA artifacts
-- provider abstraction and structured outputs
-- observability, caching, and degraded execution
-- evaluation workflows and synthetic benchmark generation
+## Why This Exists
 
-The result is a repository that demonstrates practical AI systems engineering rather than only prompt design.
+Most incident-response demos skip the layers that make generated analysis
+trustworthy. This repository focuses on those layers first:
 
-## What is implemented
+- deterministic preprocessing before model calls
+- explicit schemas for every pipeline contract
+- cited grounding from runbooks and prior incidents
+- degraded execution when data or providers are unavailable
+- repeatable evaluation and regression checks
+- auditable artifacts for review, export, and delivery
 
-- Local ingestion for logs and metrics with validation and quality reporting
-- Optional Prometheus metrics connector using query_range ingestion into canonical MetricPoint records
-- Timeline normalization into configurable 1, 5, or 15-minute buckets
-- Deterministic anomaly detectors for latency, error rate, CPU, memory, traffic, and availability
-- Dependency-aware incident correlation
-- Root-cause analysis artifacts with ranked evidence and relative support scores
-- Prompt rendering from structured RCA context
-- Optional retrieval-augmented prompt context from local runbooks and prior incidents
-- Mock and OpenAI provider support
-- Provider token/latency accounting with per-run usage summaries and configurable cost estimation
-- End-to-end pipeline execution with persisted artifacts
-- CLI and FastAPI interfaces
-- JSON observability logging with run/request correlation
-- Fault-tolerant execution with retries, caches, and degraded-run summaries
-- Evaluation harness with static and synthetic benchmark scenarios
-- Regression eval gate with golden baseline comparison artifacts
-- Multi-format report export: JSON, Markdown, and HTML
-- Report review lifecycle with status transitions (`draft`, `reviewed`, `approved`, `rejected`)
-- Generic webhook export for approved reports with retry and delivery audit log
-- Security hardening checks for file-path allowlists and config secret warnings
-
-## Architecture
-
-The system is organized as a layered pipeline:
-
-1. Ingestion loads local files and produces typed `LogEvent` and `MetricPoint` records.
-2. Normalization converts timestamps to UTC and aligns logs and metrics into timeline buckets.
-3. Anomaly detection applies deterministic rules with rolling baselines and threshold guards.
-4. Correlation groups related anomalies into incident candidates using time proximity and service dependency relationships.
-5. RCA ranks evidence, summarizes incident features, and proposes a likely root-cause service.
-6. Prompt rendering converts RCA artifacts into grounded prompt inputs.
-7. Optional retrieval injects cited context from runbooks and historical incidents.
-8. Provider execution generates final summaries through a mock or OpenAI backend.
-9. Export and delivery expose artifacts through the CLI, API, and file-based reports.
-
-If you want the module-by-module view, start with [architecture.md](docs/architecture.md).
-
-## Data Model
-
-Core records:
-- `LogEvent`: normalized application or infrastructure log line
-- `MetricPoint`: normalized metric observation
-- `TimelineEvent` and `TimelineBucketFeatures`: aligned timeline representations
-- `AnomalyCandidate`: first-pass detector output
-- `CorrelatedIncidentCandidate`: grouped anomaly cluster with a suspected primary service
-- `EvidenceBundle`, `IncidentSummaryFeatures`, `RootCauseHypothesis`: RCA artifacts
-- `FinalIncidentReport`: canonical user-facing report schema
-
-The canonical report schema lives in [final_report.py](src/incident_agent/schemas/final_report.py).
+The result is a portfolio-grade repository that shows how an AI-assisted
+operations workflow can be engineered, tested, and inspected.
 
 ## Quick Start
 
-Install dependencies:
+Requirements:
+
+- Python 3.12
+- Poetry
+- Make, optional but recommended
+- Docker Engine and Compose plugin, optional
+
+Install dependencies and run the full quality gate:
 
 ```bash
 poetry install
-```
-
-Run the test suite:
-
-```bash
-poetry run pytest
-```
-
-Run the full local quality gate:
-
-```bash
 make quality
 ```
 
-Run the full pipeline on sample incident data:
+Run the deterministic demo:
+
+```bash
+make run-demo
+```
+
+The demo writes a complete run under:
+
+```text
+artifacts/demo/portfolio-demo/
+```
+
+Open these outputs first:
+
+- `incident_report.md`
+- `incident_report.html`
+- `artifacts/run_summary.json`
+- `artifacts/reports/final_reports.json`
+
+The walkthrough in [demo_walkthrough.md](docs/demo_walkthrough.md) explains the
+scenario and artifact layout.
+
+## Run the Pipeline
+
+Run the bundled sample incident through the complete pipeline:
 
 ```bash
 poetry run incident-agent run-pipeline \
@@ -108,14 +91,22 @@ poetry run incident-agent run-pipeline \
   --metrics data/sample/incident/anomaly_metrics.csv \
   --artifact-root artifacts/pipeline \
   --bucket-size-minutes 5
+```
 
+Enable retrieval from local runbooks and historical incidents:
+
+```bash
 poetry run incident-agent run-pipeline \
   --logs data/sample/incident/anomaly_logs.csv \
   --metrics data/sample/incident/anomaly_metrics.csv \
   --retrieval-enabled \
   --knowledge-source-paths data/knowledge/runbooks \
   --knowledge-source-paths data/knowledge/incidents
+```
 
+Use Prometheus for metrics:
+
+```bash
 poetry run incident-agent run-pipeline \
   --logs data/sample/incident/anomaly_logs.csv \
   --metrics unused.csv \
@@ -124,64 +115,40 @@ poetry run incident-agent run-pipeline \
   --prometheus-query error_rate='sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)'
 ```
 
-Prometheus note: the third command requires a reachable Prometheus instance.
+The Prometheus command requires a reachable Prometheus server. Local-file runs
+work without external services.
 
-Run the API locally:
+## Pipeline Stages
 
-```bash
-poetry run uvicorn incident_agent.api.main:app --reload
-```
+The default pipeline performs:
 
-Run with Docker Compose:
-
-```bash
-cp .env.example .env
-docker compose up --build
-curl http://localhost:8000/health
-```
-
-Docker note: requires Docker Engine and Compose plugin installed.
-
-## Container Images
-
-Tagged releases publish container images to GitHub Container Registry:
-
-- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:v<major>.<minor>.<patch>`
-- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:<major>.<minor>`
-- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:<major>`
-- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:sha-<commit>`
-
-Example pull:
-
-```bash
-docker pull ghcr.io/diogoribeiro7/ai-incident-analysis-agent:v0.2.0
-```
-
-## How the Pipeline Works
-
-The default pipeline command performs:
-- ingestion
-- normalization
-- anomaly detection
-- incident correlation
-- RCA
-- final report generation
-- artifact persistence
+1. Ingest logs and metrics into typed records.
+2. Normalize timestamps to UTC and align data into timeline buckets.
+3. Detect latency, error-rate, CPU, memory, traffic, and availability anomalies.
+4. Correlate related anomalies into incident candidates.
+5. Rank evidence and produce root-cause hypotheses.
+6. Render grounded analysis inputs from structured context.
+7. Generate final reports through the configured provider.
+8. Persist artifacts for review, export, and delivery.
 
 Each run writes a timestamped artifact directory containing:
-- `normalized/timeline.json`
-- `anomalies/anomalies.json`
-- `incidents/incidents.json`
-- `rca/rca_hypotheses.json`
-- `grounding/grounding_summary.json`
-- `reports/final_reports.json`
-- `run_summary.json`
 
-`run_summary.json` captures warnings, degraded execution state, completed stages, and failure summaries.
+```text
+normalized/timeline.json
+anomalies/anomalies.json
+incidents/incidents.json
+rca/rca_hypotheses.json
+grounding/grounding_summary.json
+reports/final_reports.json
+run_summary.json
+```
 
-## CLI Usage
+`run_summary.json` captures completed stages, warnings, degraded execution state,
+and failure summaries.
 
-Validate datasets:
+## CLI
+
+Validate input data:
 
 ```bash
 poetry run incident-agent validate-data \
@@ -198,7 +165,7 @@ poetry run incident-agent ingest-data \
   --output-dir artifacts/ingestion/degraded
 ```
 
-Run stage-by-stage analysis:
+Run individual analysis stages:
 
 ```bash
 poetry run incident-agent normalize-timeline --logs <logs> --metrics <metrics>
@@ -207,7 +174,7 @@ poetry run incident-agent correlate-incidents --logs <logs> --metrics <metrics>
 poetry run incident-agent run-rca --logs <logs> --metrics <metrics>
 ```
 
-Operator commands:
+Inspect, review, and export reports:
 
 ```bash
 poetry run incident-agent print-config
@@ -218,48 +185,52 @@ poetry run incident-agent show-report --artifact-dir <run_dir> --index 0
 poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.json
 poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.md
 poetry run incident-agent export-report --artifact-dir <run_dir> --output-path report.html
+```
+
+Manage report review state and delivery:
+
+```bash
 poetry run incident-agent mark-reviewed --artifact-dir <run_dir> --incident-id <id> --reviewer <name> --note "triage complete"
 poetry run incident-agent approve-report --artifact-dir <run_dir> --incident-id <id> --reviewer <name> --note "approved"
 poetry run incident-agent reject-report --artifact-dir <run_dir> --incident-id <id> --reviewer <name> --note "needs rework"
 poetry run incident-agent export-approved-webhook --artifact-dir <run_dir> --incident-id <id> --destination-url https://example.test/webhook
 ```
 
-Generate synthetic incident scenarios:
+Generate synthetic scenarios and run evaluations:
 
 ```bash
 poetry run incident-agent generate-scenario \
   --scenario-id demo-latency \
   --scenario-type latency_degradation \
   --root-cause-service checkout-service
-```
 
-Run the evaluation harness:
-
-```bash
 poetry run incident-agent run-eval \
   --benchmark-path eval/benchmarks/scenarios.json \
   --artifact-root artifacts/eval
+
 poetry run incident-agent compare-eval \
   --baseline-summary-path eval/golden/baseline_summary.json \
   --candidate-summary-path artifacts/eval/<run_id>/summary.json \
   --output-dir artifacts/eval/compare
 ```
 
-Run the recruiter demo path:
+## API
+
+Run the API locally:
 
 ```bash
-make run-demo
+poetry run uvicorn incident_agent.api.main:app --reload
 ```
 
-## API Usage
-
 Core endpoints:
+
 - `GET /health`
 - `GET /config`
 - `POST /analyze`
 - `POST /analyze-pipeline`
 
 Job-oriented endpoints:
+
 - `POST /analysis-jobs`
 - `GET /analysis-jobs/{job_id}/reports`
 - `GET /analysis-jobs/{job_id}/reports?review_status=approved`
@@ -285,102 +256,154 @@ Example pipeline request:
 }
 ```
 
-## Evaluation Overview
+## Docker
 
-The evaluation harness compares:
+Run the service with Docker Compose:
+
+```bash
+cp .env.example .env
+docker compose up --build
+curl http://localhost:8000/health
+```
+
+Tagged releases publish container images to GitHub Container Registry:
+
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:v<major>.<minor>.<patch>`
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:<major>.<minor>`
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:<major>`
+- `ghcr.io/diogoribeiro7/ai-incident-analysis-agent:sha-<commit>`
+
+Example:
+
+```bash
+docker pull ghcr.io/diogoribeiro7/ai-incident-analysis-agent:v0.2.0
+```
+
+## Configuration
+
+The default runtime configuration lives in [default.yaml](configs/default.yaml).
+Container defaults live in [.env.example](.env.example).
+
+The project runs with a mock provider by default, so local demos do not need API
+credentials. To use the OpenAI provider, configure the provider setting and set
+`INCIDENT_AGENT_OPENAI_API_KEY`.
+
+## Evaluation
+
+The evaluation harness compares these modes:
+
 - `heuristic-only`
 - `mock-llm-no-retrieval`
 - `mock-llm-retrieval`
 - optional `real-llm-no-retrieval`
 - optional `real-llm-retrieval`
 
-It records:
-- root-cause correctness
-- impacted service correctness
-- factual grounding
-- hallucination rate
-- report completeness
-- latency
+It records root-cause correctness, impacted-service correctness, factual
+grounding, hallucination rate, report completeness, and latency. Benchmarks can
+use static scenarios or synthetic scenario definitions.
 
-Benchmarks can be backed by static files or generated on demand through synthetic scenario definitions.
+See [evaluation.md](docs/evaluation.md) and
+[synthetic_scenarios.md](docs/synthetic_scenarios.md) for details.
 
-## Observability, Caching, and Resilience
+## Quality and Release Hygiene
 
-The project includes:
-- structured JSON logs with `run_id` and `request_id`
-- bounded provider retries
-- disk caching for deterministic LLM calls
-- disk caching for intermediate pipeline stages
-- degraded execution when one dataset is unavailable
+Local quality gate:
 
-This makes repeated runs safer for demos and easier to debug.
+```bash
+make quality
+```
 
-## Limitations
+Equivalent commands:
 
-Current limitations are explicit:
-- log ingestion is local-file based; metrics can come from local files or Prometheus
-- CloudWatch, Datadog, and Grafana live metrics connectors are not included
-- RCA is heuristic, not learned
-- OpenAI is the only real provider currently supported
-- deployment packaging is demo-oriented; production hardening is not included
+```bash
+poetry run ruff format --check .
+poetry run ruff check .
+poetry run mypy src tests
+poetry run pytest
+```
 
-## Future Work
+Pre-commit hooks:
 
-Logical next steps for the project are:
-- add live connectors for systems like Grafana, CloudWatch, or Datadog
-- improve evidence ranking and output validation policies
-- add production deployment manifests
-- extend provider support and richer evaluation metrics
+```bash
+poetry run pre-commit install
+poetry run pre-commit run --all-files
+```
+
+Release and maintenance process:
+
+- [release_checklist.md](docs/release_checklist.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md)
+- [SUPPORT.md](SUPPORT.md)
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ## Repository Layout
 
 ```text
 src/incident_agent/
-  api/               # FastAPI application
-  anomaly_detection/ # Deterministic detectors
-  correlation/       # Incident correlation engine
-  eval/              # Evaluation harness
-  export/            # Report serializers
-  ingestion/         # Typed ingestion and quality reports
-  llm/               # Provider abstraction and adapters
-  normalization/     # Timeline alignment and bucket aggregation
-  prompts/           # Prompt templates and renderers
-  rca/               # Root-cause analysis artifacts and scoring
-  schemas/           # Canonical contracts
-  services/          # End-to-end workflows
-  synthetic/         # Synthetic scenario generation
-  utils/             # Shared helpers
-configs/             # Runtime configuration
-data/sample/         # Example datasets
-docs/                # Architecture and usage documentation
-eval/                # Benchmark definitions
-tests/               # Unit and integration tests
+  api/               FastAPI application
+  anomaly_detection/ Deterministic detectors
+  connectors/        External data-source adapters
+  correlation/       Incident grouping and dependency graph logic
+  eval/              Evaluation runner and benchmark support
+  export/            Report serializers and webhook delivery
+  grounding/         Factuality and citation checks
+  ingestion/         Typed log and metric ingestion
+  knowledge/         Runbook and historical-incident retrieval
+  llm/               Provider abstraction and adapters
+  normalization/     Timeline alignment and bucket aggregation
+  prompts/           Template rendering
+  rca/               Root-cause evidence and scoring
+  schemas/           Canonical contracts
+  services/          End-to-end workflows
+  storage/           Artifact storage backends
+  synthetic/         Scenario generation
+  utils/             Shared operational helpers
+
+configs/             Runtime configuration
+data/sample/         Example datasets
+docs/                Architecture and usage documentation
+eval/                Benchmark definitions and golden baselines
+tests/               Unit and integration tests
 ```
+
+## Limitations
+
+- Log ingestion is local-file based.
+- Metrics can come from local files or Prometheus.
+- CloudWatch, Datadog, and Grafana live metrics connectors are not included.
+- RCA is heuristic and evidence-ranked, not learned.
+- OpenAI is the only real provider currently supported.
+- Packaging is demo-oriented; production deployment hardening is intentionally
+  out of scope for this version.
 
 ## Documentation Index
 
-- [CHANGELOG.md](CHANGELOG.md)
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- [LICENSE](LICENSE)
-- [SUPPORT.md](SUPPORT.md)
-- [clean_clone_validation.md](docs/clean_clone_validation.md)
-- [historical_incident_corpus.md](docs/historical_incident_corpus.md)
-- [runbook_ingestion.md](docs/runbook_ingestion.md)
-- [grafana_context_ingestion.md](docs/grafana_context_ingestion.md)
-- [artifact_storage.md](docs/artifact_storage.md)
 - [architecture.md](docs/architecture.md)
-- [ingestion.md](docs/ingestion.md)
-- [anomaly_detection.md](docs/anomaly_detection.md)
+- [artifact_storage.md](docs/artifact_storage.md)
+- [clean_clone_validation.md](docs/clean_clone_validation.md)
 - [correlation.md](docs/correlation.md)
-- [rca.md](docs/rca.md)
-- [prompting.md](docs/prompting.md)
-- [evaluation.md](docs/evaluation.md)
-- [pipeline.md](docs/pipeline.md)
-- [release_checklist.md](docs/release_checklist.md)
-- [triage_playbook.md](docs/triage_playbook.md)
 - [demo_walkthrough.md](docs/demo_walkthrough.md)
 - [deployment.md](docs/deployment.md)
+- [evaluation.md](docs/evaluation.md)
+- [grafana_context_ingestion.md](docs/grafana_context_ingestion.md)
+- [historical_incident_corpus.md](docs/historical_incident_corpus.md)
+- [ingestion.md](docs/ingestion.md)
+- [llm_provider.md](docs/llm_provider.md)
+- [normalization.md](docs/normalization.md)
 - [observability.md](docs/observability.md)
-- [synthetic_scenarios.md](docs/synthetic_scenarios.md)
+- [pipeline.md](docs/pipeline.md)
+- [prompting.md](docs/prompting.md)
+- [rca.md](docs/rca.md)
+- [release_checklist.md](docs/release_checklist.md)
+- [runbook_ingestion.md](docs/runbook_ingestion.md)
 - [sample_incident_report.html](docs/sample_incident_report.html)
+- [synthetic_scenarios.md](docs/synthetic_scenarios.md)
+- [triage_playbook.md](docs/triage_playbook.md)
+- [CHANGELOG.md](CHANGELOG.md)
+- [CITATION.cff](CITATION.cff)
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [LICENSE](LICENSE)
+- [SECURITY.md](SECURITY.md)
+- [SUPPORT.md](SUPPORT.md)

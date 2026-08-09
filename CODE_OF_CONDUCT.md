@@ -17,4 +17,3 @@ risks.
 
 Report conduct concerns privately through the security contact listed in
 [SECURITY.md](SECURITY.md) when public reporting would be inappropriate.
-

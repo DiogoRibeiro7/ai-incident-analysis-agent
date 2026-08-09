@@ -14,4 +14,3 @@ For security-sensitive reports, do not open a public issue. Follow
 
 Commercial support, uptime commitments, and production incident response are not
 provided for this project.
-
