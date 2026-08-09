@@ -11,7 +11,7 @@ Incident analysis system for logs and metrics, built as an AI engineering portfo
 
 ## Security
 
-Security reporting and support policy are documented in [SECURITY.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/SECURITY.md).
+Security reporting and support policy are documented in [SECURITY.md](SECURITY.md).
 
 ## Motivation
 
@@ -62,7 +62,7 @@ The system is organized as a layered pipeline:
 8. Provider execution generates final summaries through a mock or OpenAI backend.
 9. Export and delivery expose artifacts through the CLI, API, and file-based reports.
 
-If you want the module-by-module view, start with [architecture.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/architecture.md).
+If you want the module-by-module view, start with [architecture.md](docs/architecture.md).
 
 ## Data Model
 
@@ -75,7 +75,7 @@ Core records:
 - `EvidenceBundle`, `IncidentSummaryFeatures`, `RootCauseHypothesis`: RCA artifacts
 - `FinalIncidentReport`: canonical user-facing report schema
 
-The canonical report schema lives in [final_report.py](C:/Users/diogo/work_code/ai-incident-analysis-agent/src/incident_agent/schemas/final_report.py).
+The canonical report schema lives in [final_report.py](src/incident_agent/schemas/final_report.py).
 
 ## Quick Start
 
@@ -355,26 +355,26 @@ tests/               # Unit and integration tests
 
 ## Documentation Index
 
-- [CHANGELOG.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/CHANGELOG.md)
-- [CONTRIBUTING.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/CONTRIBUTING.md)
-- [LICENSE](C:/Users/diogo/work_code/ai-incident-analysis-agent/LICENSE)
-- [clean_clone_validation.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/clean_clone_validation.md)
-- [historical_incident_corpus.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/historical_incident_corpus.md)
-- [runbook_ingestion.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/runbook_ingestion.md)
-- [grafana_context_ingestion.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/grafana_context_ingestion.md)
-- [artifact_storage.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/artifact_storage.md)
-- [architecture.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/architecture.md)
-- [ingestion.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/ingestion.md)
-- [anomaly_detection.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/anomaly_detection.md)
-- [correlation.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/correlation.md)
-- [rca.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/rca.md)
-- [prompting.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/prompting.md)
-- [evaluation.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/evaluation.md)
-- [pipeline.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/pipeline.md)
-- [release_checklist.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/release_checklist.md)
-- [triage_playbook.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/triage_playbook.md)
-- [demo_walkthrough.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/demo_walkthrough.md)
-- [deployment.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/deployment.md)
-- [observability.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/observability.md)
-- [synthetic_scenarios.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/synthetic_scenarios.md)
-- [sample_incident_report.html](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/sample_incident_report.html)
+- [CHANGELOG.md](CHANGELOG.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [LICENSE](LICENSE)
+- [clean_clone_validation.md](docs/clean_clone_validation.md)
+- [historical_incident_corpus.md](docs/historical_incident_corpus.md)
+- [runbook_ingestion.md](docs/runbook_ingestion.md)
+- [grafana_context_ingestion.md](docs/grafana_context_ingestion.md)
+- [artifact_storage.md](docs/artifact_storage.md)
+- [architecture.md](docs/architecture.md)
+- [ingestion.md](docs/ingestion.md)
+- [anomaly_detection.md](docs/anomaly_detection.md)
+- [correlation.md](docs/correlation.md)
+- [rca.md](docs/rca.md)
+- [prompting.md](docs/prompting.md)
+- [evaluation.md](docs/evaluation.md)
+- [pipeline.md](docs/pipeline.md)
+- [release_checklist.md](docs/release_checklist.md)
+- [triage_playbook.md](docs/triage_playbook.md)
+- [demo_walkthrough.md](docs/demo_walkthrough.md)
+- [deployment.md](docs/deployment.md)
+- [observability.md](docs/observability.md)
+- [synthetic_scenarios.md](docs/synthetic_scenarios.md)
+- [sample_incident_report.html](docs/sample_incident_report.html)

@@ -44,4 +44,4 @@ CI currently fails on:
 ## Maintainer operations
 
 Maintainer issue/PR handling expectations live in
-[docs/triage_playbook.md](C:/Users/diogo/work_code/ai-incident-analysis-agent/docs/triage_playbook.md).
+[docs/triage_playbook.md](docs/triage_playbook.md).
