@@ -507,7 +507,7 @@ def _generate_final_reports(
             prompt=prompts["root_cause_explanation"],
             fallback=(
                 f"Most likely root cause is {hypothesis.suspected_root_cause_service} "
-                f"with confidence {hypothesis.confidence_score:.2f}."
+                f"with relative support {hypothesis.root_cause_support:.2f}."
             ),
         )
         usages.append((completion_model, usage))

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from incident_agent.schemas.anomaly import AnomalyCandidate
 
@@ -32,13 +32,27 @@ class IncidentSummaryFeatures(BaseModel):
 class RootCauseHypothesis(BaseModel):
     """Heuristic root-cause hypothesis for one incident candidate."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     incident_id: str
     suspected_root_cause_service: str
-    confidence_score: float
+    root_cause_support: float = Field(
+        validation_alias=AliasChoices("root_cause_support", "confidence_score"),
+        description=(
+            "Relative support score for the selected root-cause service: "
+            "top candidate score divided by the sum of all candidate scores."
+        ),
+    )
     contributing_signals: list[str] = Field(default_factory=list)
     impacted_downstream_services: list[str] = Field(default_factory=list)
     unresolved_ambiguities: list[str] = Field(default_factory=list)
     rationale: str
+
+    @property
+    def confidence_score(self) -> float:
+        """Backward-compatible alias for older serialized RCA artifacts."""
+
+        return self.root_cause_support
 
 
 class RCAResult(BaseModel):

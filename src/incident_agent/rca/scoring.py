@@ -15,7 +15,7 @@ def score_root_candidates(
     downstream_bonus: float,
     ambiguity_delta: float,
 ) -> tuple[str, float, list[str]]:
-    """Rank candidate root services and return top service, confidence, ambiguities."""
+    """Rank root-cause candidates and return top service, support score, ambiguities."""
 
     candidates = [service for service in impacted_services if service != "global"]
     if not candidates:
@@ -44,11 +44,11 @@ def score_root_candidates(
     ordered = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
     top_service, top_score = ordered[0]
     second_score = ordered[1][1] if len(ordered) > 1 else 0.0
-    confidence = top_score / max(sum(scores.values()), 1e-6)
+    root_cause_support = top_score / max(sum(scores.values()), 1e-6)
     ambiguities: list[str] = []
     if len(ordered) > 1 and abs(top_score - second_score) <= ambiguity_delta:
         ambiguities.append(
             f"Top root-cause candidates are close: {ordered[0][0]} ({top_score:.2f}) "
             f"vs {ordered[1][0]} ({second_score:.2f})."
         )
-    return top_service, min(confidence, 1.0), ambiguities
+    return top_service, min(root_cause_support, 1.0), ambiguities

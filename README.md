@@ -32,7 +32,7 @@ The result is a repository that demonstrates practical AI systems engineering ra
 - Timeline normalization into configurable 1, 5, or 15-minute buckets
 - Deterministic anomaly detectors for latency, error rate, CPU, memory, traffic, and availability
 - Dependency-aware incident correlation
-- Root-cause analysis artifacts with ranked evidence and confidence scores
+- Root-cause analysis artifacts with ranked evidence and relative support scores
 - Prompt rendering from structured RCA context
 - Optional retrieval-augmented prompt context from local runbooks and prior incidents
 - Mock and OpenAI provider support

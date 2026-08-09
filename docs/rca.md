@@ -23,6 +23,21 @@ Defined in `src/incident_agent/schemas/rca.py`:
 - `RootCauseHypothesis`
 - `RCAResult`
 
+`RootCauseHypothesis.root_cause_support` is a relative support score, not a
+calibrated probability. It is calculated as:
+
+```text
+root_cause_support = top_candidate_score / sum(candidate_scores)
+```
+
+Candidate scores come from severity-ranked evidence plus deterministic service
+failure and downstream-impact bonuses. The score is useful for comparing RCA
+candidates within the same incident, but it should not be interpreted as
+statistical confidence.
+
+Older serialized RCA artifacts containing `confidence_score` are accepted on
+input for migration compatibility. New artifacts serialize `root_cause_support`.
+
 ## Config
 
 `configs/default.yaml` includes:

@@ -53,7 +53,7 @@ def _context(
     hypothesis = RootCauseHypothesis(
         incident_id="inc-1",
         suspected_root_cause_service="checkout-service",
-        confidence_score=0.88,
+        root_cause_support=0.88,
         contributing_signals=["latency_spike"],
         impacted_downstream_services=["api-service"],
         unresolved_ambiguities=[],

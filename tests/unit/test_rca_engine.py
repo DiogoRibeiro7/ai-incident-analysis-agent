@@ -6,6 +6,7 @@ from incident_agent.correlation.graph import ServiceDependencyGraph, ServiceRela
 from incident_agent.rca.engine import RCAConfig, perform_rca
 from incident_agent.schemas.anomaly import AnomalyCandidate, AnomalyType
 from incident_agent.schemas.incident import CorrelatedIncidentCandidate
+from incident_agent.schemas.rca import RootCauseHypothesis
 
 
 def _anomaly(
@@ -75,7 +76,26 @@ def test_perform_rca_returns_expected_artifacts() -> None:
     hypothesis = result.hypotheses[0]
     assert hypothesis.suspected_root_cause_service == "api-service"
     assert "gateway-service" in hypothesis.impacted_downstream_services
-    assert hypothesis.confidence_score > 0
+    assert hypothesis.root_cause_support > 0
+    assert "root_cause_support" in hypothesis.model_dump()
+    assert "confidence_score" not in hypothesis.model_dump()
+
+
+def test_root_cause_hypothesis_accepts_legacy_confidence_score() -> None:
+    hypothesis = RootCauseHypothesis.model_validate(
+        {
+            "incident_id": "inc-legacy",
+            "suspected_root_cause_service": "api-service",
+            "confidence_score": 0.42,
+            "contributing_signals": [],
+            "impacted_downstream_services": [],
+            "unresolved_ambiguities": [],
+            "rationale": "legacy artifact",
+        }
+    )
+
+    assert hypothesis.root_cause_support == 0.42
+    assert hypothesis.confidence_score == 0.42
 
 
 def test_perform_rca_marks_ambiguity_when_scores_are_close() -> None:
