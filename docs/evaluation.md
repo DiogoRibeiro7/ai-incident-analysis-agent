@@ -22,8 +22,12 @@ Measure incident analysis quality across benchmark scenarios and compare output 
 ## Metrics
 
 Per scenario and mode, the harness records:
+- incident detection correctness
+- incident count correctness
 - root-cause correctness
 - impacted service correctness
+- impacted service precision, recall, and F1
+- anomaly type recall
 - service entity precision
 - unexpected service mention rate
 - claim citation coverage
@@ -34,10 +38,32 @@ Per scenario and mode, the harness records:
 - token usage
 - estimated cost (USD)
 
+Per mode, summary artifacts aggregate incident true positives, false positives,
+false negatives, and true negatives into incident precision, recall, F1, and
+false-positive rate. These are absolute quality metrics over the labeled corpus,
+not only golden-file regression deltas.
+
 Claim-grounding rates are derived from grounding validation over generated report
 prose. When a report has zero factual claims, claim support, unsupported, and
 contradictory rates are recorded as `0.0` so unevaluable output is not silently
 treated as perfectly grounded.
+
+## Benchmark labels
+
+Each benchmark scenario can define:
+- `incident_expected`
+- `expected_root_cause`
+- `allowed_root_causes`
+- `expected_impacted_services`
+- `expected_anomaly_types`
+- `expected_min_incidents`
+- `expected_max_incidents`
+
+The default corpus contains 30 deterministic scenarios spanning healthy
+behaviour, latency, errors, resource saturation, traffic, availability,
+distributed events, ambiguous evidence, and data quality cases. Generated
+scenarios use 60-minute windows with 5-minute buckets so baseline detectors have
+enough historical support before the incident window.
 
 ## Artifacts
 

@@ -42,6 +42,30 @@ class ClaimGroundingMetricValues(NamedTuple):
     contradictory_factual_claim_rate: float
 
 
+class IncidentDetectionCounts(NamedTuple):
+    true_positive: int
+    false_positive: int
+    false_negative: int
+    true_negative: int
+
+
+_ANOMALY_KEYWORDS: dict[str, set[str]] = {
+    "latency_spike": {"latency", "slow", "slowness", "p95", "response"},
+    "error_rate_spike": {"error", "errors", "exception", "5xx", "failure", "failures"},
+    "cpu_anomaly": {"cpu"},
+    "memory_anomaly": {"memory"},
+    "traffic_drop": {"traffic", "request", "requests", "drop", "dropped", "disappeared"},
+    "service_unavailability": {
+        "availability",
+        "unavailable",
+        "unavailability",
+        "outage",
+        "heartbeat",
+        "down",
+    },
+}
+
+
 def run_evaluation(
     *,
     benchmark_path: str = "eval/benchmarks/scenarios.json",
@@ -94,6 +118,7 @@ def _evaluate_scenario_mode(
                 report,
                 predicted_root,
                 impacted_services,
+                anomaly_types,
                 incident_count,
                 token_usage,
                 estimated_cost,
@@ -107,6 +132,7 @@ def _evaluate_scenario_mode(
                 report,
                 predicted_root,
                 impacted_services,
+                anomaly_types,
                 incident_count,
                 token_usage,
                 estimated_cost,
@@ -123,6 +149,7 @@ def _evaluate_scenario_mode(
                 report,
                 predicted_root,
                 impacted_services,
+                anomaly_types,
                 incident_count,
                 token_usage,
                 estimated_cost,
@@ -139,6 +166,7 @@ def _evaluate_scenario_mode(
                 report,
                 predicted_root,
                 impacted_services,
+                anomaly_types,
                 incident_count,
                 token_usage,
                 estimated_cost,
@@ -155,6 +183,7 @@ def _evaluate_scenario_mode(
                 report,
                 predicted_root,
                 impacted_services,
+                anomaly_types,
                 incident_count,
                 token_usage,
                 estimated_cost,
@@ -170,9 +199,24 @@ def _evaluate_scenario_mode(
             raise ValueError(f"Unsupported evaluation mode: {mode}")
     except Exception as error:
         latency = perf_counter() - start
+        incident_counts = _incident_detection_counts(scenario=scenario, incident_count=0)
         metrics = EvaluationMetrics(
+            incident_detected=False,
+            incident_expectation_correctness=1.0 if not scenario.incident_expected else 0.0,
+            incident_count_correctness=_incident_count_correctness(
+                scenario=scenario,
+                incident_count=0,
+            ),
+            incident_true_positive=incident_counts.true_positive,
+            incident_false_positive=incident_counts.false_positive,
+            incident_false_negative=incident_counts.false_negative,
+            incident_true_negative=incident_counts.true_negative,
             root_cause_correctness=0.0,
             impacted_service_correctness=0.0,
+            impacted_service_precision=0.0,
+            impacted_service_recall=0.0,
+            impacted_service_f1=0.0,
+            anomaly_type_recall=0.0,
             service_entity_precision=0.0,
             unexpected_service_mention_rate=1.0,
             citation_coverage=0.0,
@@ -204,6 +248,8 @@ def _evaluate_scenario_mode(
         report=report,
         predicted_root=predicted_root,
         impacted_services=impacted_services,
+        anomaly_types=anomaly_types,
+        incident_count=incident_count,
         mode=mode,
         grounding_summary=grounding_summary,
         latency_seconds=latency,
@@ -216,6 +262,7 @@ def _evaluate_scenario_mode(
         success=True,
         predicted_root_cause=predicted_root,
         predicted_impacted_services=impacted_services,
+        predicted_anomaly_types=anomaly_types,
         incident_count=incident_count,
         metrics=metrics,
     )
@@ -228,6 +275,7 @@ def _run_heuristic_mode(
 ) -> tuple[
     FinalIncidentReport,
     str | None,
+    list[str],
     list[str],
     int,
     int | None,
@@ -252,10 +300,11 @@ def _run_heuristic_mode(
             inferences=[],
             uncertainties=["No incidents were produced by correlation and RCA."],
         )
-        return report, None, [], 0, None, None, None
+        return report, None, [], [], 0, None, None, None
 
     hypothesis = rca.hypotheses[0]
     summary = rca.summaries[0]
+    anomaly_types = sorted(summary.anomaly_type_counts)
     report = FinalIncidentReport(
         incident_id=hypothesis.incident_id,
         incident_summary="Heuristic RCA indicates an incident affecting service health.",
@@ -271,6 +320,7 @@ def _run_heuristic_mode(
         ],
         facts=[
             f"Impacted services: {', '.join(summary.impacted_services)}",
+            f"Anomaly types: {', '.join(anomaly_types)}",
             f"Total evidence: {summary.total_evidence}",
         ],
         inferences=[hypothesis.rationale],
@@ -287,6 +337,7 @@ def _run_heuristic_mode(
         report,
         hypothesis.suspected_root_cause_service,
         summary.impacted_services,
+        anomaly_types,
         len(rca.hypotheses),
         None,
         None,
@@ -304,6 +355,7 @@ def _run_pipeline_mode(
 ) -> tuple[
     FinalIncidentReport,
     str | None,
+    list[str],
     list[str],
     int,
     int | None,
@@ -348,6 +400,7 @@ def _run_pipeline_mode(
             report,
             None,
             [],
+            [],
             result.incident_count,
             result.llm_usage.total_tokens,
             result.llm_usage.total_estimated_cost_usd,
@@ -363,6 +416,7 @@ def _run_pipeline_mode(
         report,
         _extract_root_service(report),
         _extract_impacted_services(report),
+        _extract_anomaly_types(report),
         result.incident_count,
         result.llm_usage.total_tokens,
         result.llm_usage.total_estimated_cost_usd,
@@ -404,12 +458,35 @@ def _extract_impacted_services(report: FinalIncidentReport) -> list[str]:
     return services
 
 
+def _extract_anomaly_types(report: FinalIncidentReport) -> list[str]:
+    text = " ".join(
+        [
+            report.incident_summary,
+            report.root_cause_explanation,
+            report.executive_summary,
+            report.engineering_handoff,
+            " ".join(report.facts),
+            " ".join(report.inferences),
+            " ".join(report.uncertainties),
+        ]
+    ).lower()
+    tokens = set(text.replace("_", " ").replace("-", " ").split())
+    anomaly_types = [
+        anomaly_type
+        for anomaly_type, keywords in _ANOMALY_KEYWORDS.items()
+        if anomaly_type in text or tokens & keywords
+    ]
+    return anomaly_types
+
+
 def _score_report(
     *,
     scenario: BenchmarkScenario,
     report: FinalIncidentReport,
     predicted_root: str | None,
     impacted_services: list[str],
+    anomaly_types: list[str],
+    incident_count: int,
     mode: EvaluationMode,
     grounding_summary: GroundingSummary | None,
     latency_seconds: float,
@@ -417,7 +494,27 @@ def _score_report(
     estimated_cost_usd: float | None,
 ) -> EvaluationMetrics:
     expected_root = scenario.expected_root_cause
-    root_correct = 1.0 if expected_root is not None and predicted_root == expected_root else 0.0
+    allowed_roots = set(scenario.allowed_root_causes)
+    if expected_root is not None:
+        allowed_roots.add(expected_root)
+    if not scenario.incident_expected:
+        root_correct = 1.0 if predicted_root is None else 0.0
+    else:
+        root_correct = (
+            1.0 if predicted_root is not None and predicted_root in allowed_roots else 0.0
+        )
+
+    incident_detected = incident_count > 0
+    incident_expectation = 1.0 if incident_detected == scenario.incident_expected else 0.0
+    incident_count_score = _incident_count_correctness(
+        scenario=scenario,
+        incident_count=incident_count,
+    )
+    incident_counts = _incident_detection_counts(
+        scenario=scenario,
+        incident_count=incident_count,
+    )
+
     expected_impacted = set(scenario.expected_impacted_services)
     predicted_impacted = set(impacted_services)
     if not expected_impacted and not predicted_impacted:
@@ -426,6 +523,18 @@ def _score_report(
         impacted_score = len(expected_impacted & predicted_impacted) / max(
             len(expected_impacted | predicted_impacted), 1
         )
+    impacted_precision, impacted_recall, impacted_f1 = _precision_recall_f1(
+        expected=expected_impacted,
+        predicted=predicted_impacted,
+    )
+
+    expected_anomaly_types = set(scenario.expected_anomaly_types)
+    predicted_anomaly_types = set(anomaly_types)
+    anomaly_type_recall = (
+        len(expected_anomaly_types & predicted_anomaly_types) / len(expected_anomaly_types)
+        if expected_anomaly_types
+        else 1.0
+    )
 
     known_services = set(scenario.expected_impacted_services)
     if scenario.expected_root_cause:
@@ -480,8 +589,19 @@ def _score_report(
                     used_retrieved_ids.add(support_id)
         retrieval_relevance = len(used_retrieved_ids) / len(retrieved_ids) if retrieved_ids else 0.0
     return EvaluationMetrics(
+        incident_detected=incident_detected,
+        incident_expectation_correctness=round(incident_expectation, 4),
+        incident_count_correctness=round(incident_count_score, 4),
+        incident_true_positive=incident_counts.true_positive,
+        incident_false_positive=incident_counts.false_positive,
+        incident_false_negative=incident_counts.false_negative,
+        incident_true_negative=incident_counts.true_negative,
         root_cause_correctness=round(root_correct, 4),
         impacted_service_correctness=round(impacted_score, 4),
+        impacted_service_precision=round(impacted_precision, 4),
+        impacted_service_recall=round(impacted_recall, 4),
+        impacted_service_f1=round(impacted_f1, 4),
+        anomaly_type_recall=round(anomaly_type_recall, 4),
         service_entity_precision=round(service_entity_precision, 4),
         unexpected_service_mention_rate=round(unexpected_service_mention_rate, 4),
         citation_coverage=round(citation_coverage, 4),
@@ -544,6 +664,43 @@ def _claim_grounding_metrics(
     )
 
 
+def _precision_recall_f1(*, expected: set[str], predicted: set[str]) -> tuple[float, float, float]:
+    if not expected and not predicted:
+        return 1.0, 1.0, 1.0
+    true_positive = len(expected & predicted)
+    precision = true_positive / len(predicted) if predicted else 0.0
+    recall = true_positive / len(expected) if expected else 1.0
+    f1 = 0.0 if precision + recall == 0 else 2 * precision * recall / (precision + recall)
+    return precision, recall, f1
+
+
+def _incident_count_correctness(*, scenario: BenchmarkScenario, incident_count: int) -> float:
+    if not scenario.incident_expected:
+        return 1.0 if incident_count == 0 else 0.0
+    if (
+        scenario.expected_max_incidents is not None
+        and incident_count > scenario.expected_max_incidents
+    ):
+        return 0.0
+    if incident_count < scenario.expected_min_incidents:
+        return 0.0
+    return 1.0
+
+
+def _incident_detection_counts(
+    *,
+    scenario: BenchmarkScenario,
+    incident_count: int,
+) -> IncidentDetectionCounts:
+    detected = incident_count > 0
+    return IncidentDetectionCounts(
+        true_positive=1 if scenario.incident_expected and detected else 0,
+        false_positive=1 if not scenario.incident_expected and detected else 0,
+        false_negative=1 if scenario.incident_expected and not detected else 0,
+        true_negative=1 if not scenario.incident_expected and not detected else 0,
+    )
+
+
 def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSummary]:
     mode_order = {mode: index for index, mode in enumerate(evaluation_modes(include_real_llm=True))}
     modes = sorted(
@@ -556,6 +713,27 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
         successful = [record for record in scoped if record.success]
         if not scoped:
             continue
+        incident_true_positive = sum(item.metrics.incident_true_positive for item in scoped)
+        incident_false_positive = sum(item.metrics.incident_false_positive for item in scoped)
+        incident_false_negative = sum(item.metrics.incident_false_negative for item in scoped)
+        incident_true_negative = sum(item.metrics.incident_true_negative for item in scoped)
+        incident_precision = incident_true_positive / max(
+            incident_true_positive + incident_false_positive,
+            1,
+        )
+        incident_recall = incident_true_positive / max(
+            incident_true_positive + incident_false_negative,
+            1,
+        )
+        incident_f1 = (
+            0.0
+            if incident_precision + incident_recall == 0
+            else 2 * incident_precision * incident_recall / (incident_precision + incident_recall)
+        )
+        incident_false_positive_rate = incident_false_positive / max(
+            incident_false_positive + incident_true_negative,
+            1,
+        )
         if successful:
             factual_claim_count = sum(item.metrics.factual_claim_count for item in successful)
             supported_factual_claim_count = sum(
@@ -583,11 +761,35 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
                 mode=mode,
                 runs=len(scoped),
                 success_rate=round(len(successful) / len(scoped), 4),
+                incident_precision=round(incident_precision, 4),
+                incident_recall=round(incident_recall, 4),
+                incident_f1=round(incident_f1, 4),
+                incident_false_positive_rate=round(incident_false_positive_rate, 4),
+                incident_count_correctness=round(
+                    mean(item.metrics.incident_count_correctness for item in scoped),
+                    4,
+                ),
+                incident_true_positive=incident_true_positive,
+                incident_false_positive=incident_false_positive,
+                incident_false_negative=incident_false_negative,
+                incident_true_negative=incident_true_negative,
                 root_cause_correctness=round(
                     mean(item.metrics.root_cause_correctness for item in successful), 4
                 ),
                 impacted_service_correctness=round(
                     mean(item.metrics.impacted_service_correctness for item in successful), 4
+                ),
+                impacted_service_precision=round(
+                    mean(item.metrics.impacted_service_precision for item in successful), 4
+                ),
+                impacted_service_recall=round(
+                    mean(item.metrics.impacted_service_recall for item in successful), 4
+                ),
+                impacted_service_f1=round(
+                    mean(item.metrics.impacted_service_f1 for item in successful), 4
+                ),
+                anomaly_type_recall=round(
+                    mean(item.metrics.anomaly_type_recall for item in successful), 4
                 ),
                 service_entity_precision=round(
                     mean(item.metrics.service_entity_precision for item in successful),
@@ -636,8 +838,24 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
                 mode=mode,
                 runs=len(scoped),
                 success_rate=0.0,
+                incident_precision=round(incident_precision, 4),
+                incident_recall=round(incident_recall, 4),
+                incident_f1=round(incident_f1, 4),
+                incident_false_positive_rate=round(incident_false_positive_rate, 4),
+                incident_count_correctness=round(
+                    mean(item.metrics.incident_count_correctness for item in scoped),
+                    4,
+                ),
+                incident_true_positive=incident_true_positive,
+                incident_false_positive=incident_false_positive,
+                incident_false_negative=incident_false_negative,
+                incident_true_negative=incident_true_negative,
                 root_cause_correctness=0.0,
                 impacted_service_correctness=0.0,
+                impacted_service_precision=0.0,
+                impacted_service_recall=0.0,
+                impacted_service_f1=0.0,
+                anomaly_type_recall=0.0,
                 service_entity_precision=0.0,
                 unexpected_service_mention_rate=1.0,
                 citation_coverage=0.0,
@@ -675,11 +893,11 @@ def _summary_markdown(result: EvaluationResult) -> str:
     header = (
         "# Evaluation Summary\n\n"
         f"Run ID: `{result.run_id}`\n\n"
-        "| Mode | Runs | Success | Root Cause | Impacted Services | Service Precision | "
-        "Unexpected Services | Claim Support | Unsupported Claims | Contradictory Claims | "
-        "Citation Coverage | Retrieval Relevance | Completeness | Latency (s) | "
-        "Avg Tokens | Total Cost (USD) |\n"
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
+        "| Mode | Runs | Success | Incident F1 | False Positive Rate | Incident Count | "
+        "Root Cause | Impacted F1 | Anomaly Recall | Service Precision | Unexpected Services | "
+        "Claim Support | Unsupported Claims | Contradictory Claims | Citation Coverage | "
+        "Retrieval Relevance | Completeness | Latency (s) | Avg Tokens | Total Cost (USD) |\n"
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
     )
     lines = []
     for summary in result.summaries:
@@ -694,7 +912,10 @@ def _summary_markdown(result: EvaluationResult) -> str:
         lines.append(
             "| "
             f"{summary.mode.value} | {summary.runs} | {summary.success_rate:.2f} | "
-            f"{summary.root_cause_correctness:.2f} | {summary.impacted_service_correctness:.2f} | "
+            f"{summary.incident_f1:.2f} | {summary.incident_false_positive_rate:.2f} | "
+            f"{summary.incident_count_correctness:.2f} | "
+            f"{summary.root_cause_correctness:.2f} | {summary.impacted_service_f1:.2f} | "
+            f"{summary.anomaly_type_recall:.2f} | "
             f"{summary.service_entity_precision:.2f} | "
             f"{summary.unexpected_service_mention_rate:.2f} | "
             f"{summary.factual_claim_support_rate:.2f} | "
@@ -812,6 +1033,27 @@ def _metric_regressions_for_mode(
             "drop",
         ),
         (
+            "incident_f1",
+            baseline.incident_f1,
+            candidate.incident_f1,
+            thresholds.incident_f1_drop_max,
+            "drop",
+        ),
+        (
+            "incident_false_positive_rate",
+            baseline.incident_false_positive_rate,
+            candidate.incident_false_positive_rate,
+            thresholds.incident_false_positive_rate_increase_max,
+            "increase",
+        ),
+        (
+            "incident_count_correctness",
+            baseline.incident_count_correctness,
+            candidate.incident_count_correctness,
+            thresholds.incident_count_correctness_drop_max,
+            "drop",
+        ),
+        (
             "root_cause_correctness",
             baseline.root_cause_correctness,
             candidate.root_cause_correctness,
@@ -823,6 +1065,20 @@ def _metric_regressions_for_mode(
             baseline.impacted_service_correctness,
             candidate.impacted_service_correctness,
             thresholds.impacted_service_correctness_drop_max,
+            "drop",
+        ),
+        (
+            "impacted_service_f1",
+            baseline.impacted_service_f1,
+            candidate.impacted_service_f1,
+            thresholds.impacted_service_f1_drop_max,
+            "drop",
+        ),
+        (
+            "anomaly_type_recall",
+            baseline.anomaly_type_recall,
+            candidate.anomaly_type_recall,
+            thresholds.anomaly_type_recall_drop_max,
             "drop",
         ),
         (

@@ -1,22 +1,555 @@
 [
   {
-    "scenario_id": "checkout_incident_spike",
-    "description": "Checkout service incident with latency/error/cpu/memory and availability anomalies.",
-    "logs_path": "data/sample/incident/anomaly_logs.csv",
-    "metrics_path": "data/sample/incident/anomaly_metrics.csv",
-    "expected_root_cause": "checkout-service",
-    "expected_impacted_services": ["checkout-service"],
-    "expected_min_incidents": 1,
-    "retrieval_source_paths": ["data/knowledge/runbooks", "data/knowledge/incidents"]
+    "scenario_id": "healthy_stable_checkout",
+    "description": "Stable healthy checkout-service baseline.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": false,
+    "expected_root_cause": null,
+    "expected_impacted_services": [],
+    "expected_anomaly_types": [],
+    "expected_min_incidents": 0,
+    "expected_max_incidents": 0,
+    "generator": {
+      "scenario_type": "healthy_stable",
+      "root_cause_service": "checkout-service",
+      "impacted_services": [],
+      "duration_minutes": 60,
+      "seed": 101
+    }
   },
   {
-    "scenario_id": "api_degraded_period",
-    "description": "Degraded API period with elevated latency and errors.",
-    "logs_path": "data/sample/degraded/logs.jsonl",
-    "metrics_path": "data/sample/degraded/metrics.csv",
+    "scenario_id": "healthy_noisy_api",
+    "description": "Noisy but healthy api-service metrics.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": false,
+    "expected_root_cause": null,
+    "expected_impacted_services": [],
+    "expected_anomaly_types": [],
+    "expected_min_incidents": 0,
+    "expected_max_incidents": 0,
+    "generator": {
+      "scenario_type": "healthy_noisy",
+      "root_cause_service": "api-service",
+      "impacted_services": [],
+      "duration_minutes": 60,
+      "seed": 102
+    }
+  },
+  {
+    "scenario_id": "normal_traffic_variability_gateway",
+    "description": "Normal traffic variability without incident.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": false,
+    "expected_root_cause": null,
+    "expected_impacted_services": [],
+    "expected_anomaly_types": [],
+    "expected_min_incidents": 0,
+    "expected_max_incidents": 0,
+    "generator": {
+      "scenario_type": "normal_traffic_variability",
+      "root_cause_service": "gateway-service",
+      "impacted_services": [],
+      "duration_minutes": 60,
+      "seed": 103
+    }
+  },
+  {
+    "scenario_id": "transient_latency_checkout",
+    "description": "Transient latency spike on checkout-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "checkout-service",
+    "expected_impacted_services": ["checkout-service"],
+    "expected_anomaly_types": ["latency_spike"],
+    "expected_min_incidents": 1,
+    "expected_max_incidents": 2,
+    "generator": {
+      "scenario_type": "transient_latency_spike",
+      "root_cause_service": "checkout-service",
+      "impacted_services": ["checkout-service"],
+      "duration_minutes": 60,
+      "seed": 104
+    }
+  },
+  {
+    "scenario_id": "persistent_latency_checkout",
+    "description": "Persistent checkout-service latency degradation.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "checkout-service",
+    "expected_impacted_services": ["checkout-service"],
+    "expected_anomaly_types": ["latency_spike"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "latency_degradation",
+      "root_cause_service": "checkout-service",
+      "impacted_services": ["checkout-service"],
+      "duration_minutes": 60,
+      "seed": 105
+    }
+  },
+  {
+    "scenario_id": "gradual_latency_drift_api",
+    "description": "Gradual latency drift on api-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
     "expected_root_cause": "api-service",
     "expected_impacted_services": ["api-service"],
+    "expected_anomaly_types": ["latency_spike"],
     "expected_min_incidents": 1,
-    "retrieval_source_paths": ["data/knowledge/runbooks", "data/knowledge/incidents"]
+    "generator": {
+      "scenario_type": "gradual_latency_drift",
+      "root_cause_service": "api-service",
+      "impacted_services": ["api-service"],
+      "duration_minutes": 60,
+      "seed": 106
+    }
+  },
+  {
+    "scenario_id": "error_rate_spike_api",
+    "description": "Short error-rate spike on api-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "api-service",
+    "expected_impacted_services": ["api-service"],
+    "expected_anomaly_types": ["error_rate_spike"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "error_burst",
+      "root_cause_service": "api-service",
+      "impacted_services": ["api-service"],
+      "duration_minutes": 60,
+      "seed": 107
+    }
+  },
+  {
+    "scenario_id": "persistent_error_rate_checkout",
+    "description": "Persistent elevated error rate on checkout-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "checkout-service",
+    "expected_impacted_services": ["checkout-service"],
+    "expected_anomaly_types": ["error_rate_spike"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "persistent_error_rate",
+      "root_cause_service": "checkout-service",
+      "impacted_services": ["checkout-service"],
+      "duration_minutes": 60,
+      "seed": 108
+    }
+  },
+  {
+    "scenario_id": "error_logs_without_metric_degradation",
+    "description": "Error logs without matching metric degradation.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "gateway-service",
+    "expected_impacted_services": ["gateway-service"],
+    "expected_anomaly_types": [],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "error_logs_only",
+      "root_cause_service": "gateway-service",
+      "impacted_services": ["gateway-service"],
+      "duration_minutes": 60,
+      "seed": 109
+    }
+  },
+  {
+    "scenario_id": "metrics_without_error_logs",
+    "description": "Metric degradation without corresponding error logs.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "checkout-service",
+    "expected_impacted_services": ["checkout-service"],
+    "expected_anomaly_types": ["latency_spike"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "metrics_only_degradation",
+      "root_cause_service": "checkout-service",
+      "impacted_services": ["checkout-service"],
+      "duration_minutes": 60,
+      "seed": 110
+    }
+  },
+  {
+    "scenario_id": "cpu_saturation_worker",
+    "description": "CPU saturation on worker-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "worker-service",
+    "expected_impacted_services": ["worker-service"],
+    "expected_anomaly_types": ["cpu_anomaly"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "cpu_saturation",
+      "root_cause_service": "worker-service",
+      "impacted_services": ["worker-service"],
+      "duration_minutes": 60,
+      "seed": 111
+    }
+  },
+  {
+    "scenario_id": "memory_saturation_checkout",
+    "description": "Memory saturation on checkout-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "checkout-service",
+    "expected_impacted_services": ["checkout-service"],
+    "expected_anomaly_types": ["memory_anomaly"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "memory_saturation",
+      "root_cause_service": "checkout-service",
+      "impacted_services": ["checkout-service"],
+      "duration_minutes": 60,
+      "seed": 112
+    }
+  },
+  {
+    "scenario_id": "traffic_collapse_gateway",
+    "description": "Traffic collapse for gateway-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "gateway-service",
+    "expected_impacted_services": ["gateway-service"],
+    "expected_anomaly_types": ["traffic_drop"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "traffic_drop",
+      "root_cause_service": "gateway-service",
+      "impacted_services": ["gateway-service"],
+      "duration_minutes": 60,
+      "seed": 113
+    }
+  },
+  {
+    "scenario_id": "traffic_disappearance_api",
+    "description": "Complete traffic disappearance for api-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "api-service",
+    "expected_impacted_services": ["api-service"],
+    "expected_anomaly_types": ["traffic_drop"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "traffic_disappearance",
+      "root_cause_service": "api-service",
+      "impacted_services": ["api-service"],
+      "duration_minutes": 60,
+      "seed": 114
+    }
+  },
+  {
+    "scenario_id": "isolated_low_volume_bucket_gateway",
+    "description": "Single low-volume bucket on gateway-service without sustained impact.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": false,
+    "expected_root_cause": null,
+    "expected_impacted_services": [],
+    "expected_anomaly_types": [],
+    "expected_min_incidents": 0,
+    "expected_max_incidents": 0,
+    "generator": {
+      "scenario_type": "isolated_low_volume_bucket",
+      "root_cause_service": "gateway-service",
+      "impacted_services": [],
+      "duration_minutes": 60,
+      "seed": 115
+    }
+  },
+  {
+    "scenario_id": "heartbeat_loss_checkout",
+    "description": "Service heartbeat loss on checkout-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "checkout-service",
+    "expected_impacted_services": ["checkout-service"],
+    "expected_anomaly_types": ["service_unavailability"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "heartbeat_loss",
+      "root_cause_service": "checkout-service",
+      "impacted_services": ["checkout-service"],
+      "duration_minutes": 60,
+      "seed": 116
+    }
+  },
+  {
+    "scenario_id": "temporary_unavailability_gateway",
+    "description": "Temporary unavailability on gateway-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "gateway-service",
+    "expected_impacted_services": ["gateway-service"],
+    "expected_anomaly_types": ["service_unavailability"],
+    "expected_min_incidents": 1,
+    "expected_max_incidents": 2,
+    "generator": {
+      "scenario_type": "temporary_unavailability",
+      "root_cause_service": "gateway-service",
+      "impacted_services": ["gateway-service"],
+      "duration_minutes": 60,
+      "seed": 117
+    }
+  },
+  {
+    "scenario_id": "partial_outage_api",
+    "description": "Partial outage on api-service with availability symptoms.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "api-service",
+    "expected_impacted_services": ["api-service"],
+    "expected_anomaly_types": ["service_unavailability"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "partial_outage",
+      "root_cause_service": "api-service",
+      "impacted_services": ["api-service"],
+      "duration_minutes": 60,
+      "seed": 118
+    }
+  },
+  {
+    "scenario_id": "missing_observability_checkout",
+    "description": "Missing observability signal without actual checkout-service outage.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": false,
+    "expected_root_cause": null,
+    "expected_impacted_services": [],
+    "expected_anomaly_types": [],
+    "expected_min_incidents": 0,
+    "expected_max_incidents": 0,
+    "generator": {
+      "scenario_type": "missing_observability",
+      "root_cause_service": "checkout-service",
+      "impacted_services": [],
+      "duration_minutes": 60,
+      "seed": 119
+    }
+  },
+  {
+    "scenario_id": "dependency_cascade_gateway",
+    "description": "Gateway-service dependency cascade into checkout-service and api-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "gateway-service",
+    "expected_impacted_services": ["gateway-service", "checkout-service", "api-service"],
+    "expected_anomaly_types": ["latency_spike", "error_rate_spike"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "dependency_cascade",
+      "root_cause_service": "gateway-service",
+      "impacted_services": ["checkout-service", "api-service"],
+      "duration_minutes": 60,
+      "seed": 120
+    }
+  },
+  {
+    "scenario_id": "upstream_root_checkout",
+    "description": "Checkout-service upstream root cause with downstream symptoms.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "checkout-service",
+    "expected_impacted_services": ["checkout-service", "api-service"],
+    "expected_anomaly_types": ["latency_spike", "error_rate_spike"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "upstream_root_cause",
+      "root_cause_service": "checkout-service",
+      "impacted_services": ["api-service"],
+      "duration_minutes": 60,
+      "seed": 121
+    }
+  },
+  {
+    "scenario_id": "downstream_symptoms_api",
+    "description": "API downstream symptoms from checkout-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "checkout-service",
+    "expected_impacted_services": ["checkout-service", "api-service"],
+    "expected_anomaly_types": ["latency_spike", "error_rate_spike"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "downstream_symptoms",
+      "root_cause_service": "checkout-service",
+      "impacted_services": ["api-service"],
+      "duration_minutes": 60,
+      "seed": 122
+    }
+  },
+  {
+    "scenario_id": "unrelated_simultaneous_gateway_checkout",
+    "description": "Gateway-service and checkout-service anomalies at the same time that should stay separate.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "gateway-service",
+    "allowed_root_causes": ["gateway-service", "checkout-service"],
+    "expected_impacted_services": ["gateway-service", "checkout-service"],
+    "expected_anomaly_types": ["latency_spike", "error_rate_spike"],
+    "expected_min_incidents": 2,
+    "expected_max_incidents": 2,
+    "generator": {
+      "scenario_type": "unrelated_simultaneous",
+      "root_cause_service": "gateway-service",
+      "impacted_services": ["checkout-service"],
+      "duration_minutes": 60,
+      "seed": 123
+    }
+  },
+  {
+    "scenario_id": "ambiguous_checkout_api",
+    "description": "Ambiguous checkout-service and api-service causal evidence.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "checkout-service",
+    "allowed_root_causes": ["checkout-service", "api-service"],
+    "expected_impacted_services": ["checkout-service", "api-service"],
+    "expected_anomaly_types": ["latency_spike", "error_rate_spike"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "ambiguous_root_causes",
+      "root_cause_service": "checkout-service",
+      "impacted_services": ["api-service"],
+      "duration_minutes": 60,
+      "seed": 124
+    }
+  },
+  {
+    "scenario_id": "contradictory_gateway_checkout",
+    "description": "Contradictory telemetry between gateway-service and checkout-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "gateway-service",
+    "allowed_root_causes": ["gateway-service", "checkout-service"],
+    "expected_impacted_services": ["gateway-service", "checkout-service"],
+    "expected_anomaly_types": ["latency_spike", "error_rate_spike"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "contradictory_telemetry",
+      "root_cause_service": "gateway-service",
+      "impacted_services": ["checkout-service"],
+      "duration_minutes": 60,
+      "seed": 125
+    }
+  },
+  {
+    "scenario_id": "insufficient_evidence_gateway",
+    "description": "Gateway-service has weak warning-only evidence that should not force an incident.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": false,
+    "expected_root_cause": null,
+    "expected_impacted_services": [],
+    "expected_anomaly_types": [],
+    "expected_min_incidents": 0,
+    "expected_max_incidents": 0,
+    "generator": {
+      "scenario_type": "insufficient_evidence",
+      "root_cause_service": "gateway-service",
+      "impacted_services": [],
+      "duration_minutes": 60,
+      "seed": 126
+    }
+  },
+  {
+    "scenario_id": "resource_anomaly_no_impact_worker",
+    "description": "Worker-service resource anomaly without service-level impact.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": false,
+    "expected_root_cause": null,
+    "expected_impacted_services": [],
+    "expected_anomaly_types": [],
+    "expected_min_incidents": 0,
+    "expected_max_incidents": 0,
+    "generator": {
+      "scenario_type": "resource_anomaly_no_impact",
+      "root_cause_service": "worker-service",
+      "impacted_services": [],
+      "duration_minutes": 60,
+      "seed": 127
+    }
+  },
+  {
+    "scenario_id": "missing_logs_checkout",
+    "description": "Missing logs with metric evidence for checkout-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "checkout-service",
+    "expected_impacted_services": ["checkout-service"],
+    "expected_anomaly_types": ["latency_spike"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "missing_logs",
+      "root_cause_service": "checkout-service",
+      "impacted_services": ["checkout-service"],
+      "duration_minutes": 60,
+      "seed": 128
+    }
+  },
+  {
+    "scenario_id": "missing_metrics_api",
+    "description": "Missing metrics with error logs for api-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "api-service",
+    "expected_impacted_services": ["api-service"],
+    "expected_anomaly_types": [],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "missing_metrics",
+      "root_cause_service": "api-service",
+      "impacted_services": ["api-service"],
+      "duration_minutes": 60,
+      "seed": 129
+    }
+  },
+  {
+    "scenario_id": "sparse_observations_gateway",
+    "description": "Sparse intermittent observations for gateway-service.",
+    "logs_path": "",
+    "metrics_path": "",
+    "incident_expected": true,
+    "expected_root_cause": "gateway-service",
+    "expected_impacted_services": ["gateway-service"],
+    "expected_anomaly_types": ["latency_spike", "error_rate_spike"],
+    "expected_min_incidents": 1,
+    "generator": {
+      "scenario_type": "sparse_observations",
+      "root_cause_service": "gateway-service",
+      "impacted_services": ["gateway-service"],
+      "duration_minutes": 60,
+      "seed": 130
+    }
   }
 ]

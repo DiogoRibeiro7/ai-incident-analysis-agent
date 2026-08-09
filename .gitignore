@@ -38,6 +38,7 @@ htmlcov/
 
 # Project runtime artifacts
 artifacts/
+eval/benchmarks/generated/
 *.log
 
 # IDE/editor settings
