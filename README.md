@@ -396,6 +396,7 @@ tests/               Unit and integration tests
 - [prompting.md](docs/prompting.md)
 - [rca.md](docs/rca.md)
 - [release_checklist.md](docs/release_checklist.md)
+- [ROADMAP.md](ROADMAP.md)
 - [runbook_ingestion.md](docs/runbook_ingestion.md)
 - [sample_incident_report.html](docs/sample_incident_report.html)
 - [synthetic_scenarios.md](docs/synthetic_scenarios.md)
