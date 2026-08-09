@@ -276,7 +276,7 @@ Tagged releases publish container images to GitHub Container Registry:
 Example:
 
 ```bash
-docker pull ghcr.io/diogoribeiro7/ai-incident-analysis-agent:v0.2.1
+docker pull ghcr.io/diogoribeiro7/ai-incident-analysis-agent:v0.2.2
 ```
 
 ## Configuration

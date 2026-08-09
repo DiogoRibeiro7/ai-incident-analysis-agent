@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is loosely based on Keep a Changelog and uses repository-focused release notes.
 
+## [0.2.2] - 2026-08-09
+
+### Fixed
+
+- Container builds now use Poetry 2.2.1 so PEP 621 project metadata is accepted during image publication.
+
 ## [0.2.1] - 2026-08-09
 
 ### Added
