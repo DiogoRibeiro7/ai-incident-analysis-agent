@@ -501,6 +501,10 @@ def export_approved_webhook(
         timeout_seconds=config_values.timeout_seconds,
         max_retries=config_values.max_retries,
         retry_backoff_seconds=config_values.retry_backoff_seconds,
+        allowed_urls=config_values.allowed_urls,
+        allowed_hosts=config_values.allowed_hosts,
+        allow_http=config_values.allow_http,
+        allow_private_networks=config_values.allow_private_networks,
     )
     try:
         record = export_report_via_webhook(

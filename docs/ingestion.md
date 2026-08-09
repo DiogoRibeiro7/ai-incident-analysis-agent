@@ -80,6 +80,13 @@ Connector defaults live in `configs/default.yaml` under:
 - `connectors.prometheus.timeout_seconds`
 - `connectors.prometheus.step_seconds`
 - `connectors.prometheus.metric_queries`
+- `connectors.prometheus.allowed_hosts`
+- `connectors.prometheus.allow_http`
+- `connectors.prometheus.allow_private_networks`
+
+For a local Prometheus endpoint, add `localhost` or `127.0.0.1` to
+`connectors.prometheus.allowed_hosts` and set `allow_http` plus
+`allow_private_networks` to `true` only for a trusted local deployment.
 
 Generated files include:
 - `normalized_logs.jsonl`

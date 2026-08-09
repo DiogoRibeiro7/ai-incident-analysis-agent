@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from incident_agent.api.main import app
 from incident_agent.api.store import AnalysisJobStore
 
+_PUBLIC_TEST_HOST = "93.184.216.34"
+
 
 def _client() -> TestClient:
     app.state.job_store = AnalysisJobStore()
@@ -254,6 +256,19 @@ def test_export_approved_report_to_webhook(tmp_path: Path, monkeypatch: pytest.M
             return httpx.Response(status_code=200, json={"payload_id": "ticket-42"})
 
     monkeypatch.setattr("incident_agent.export.webhook.httpx.Client", _FakeClient)
+    config_path = tmp_path / "webhook.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "webhook_export:",
+                "  allowed_urls:",
+                f"    - https://{_PUBLIC_TEST_HOST}/webhook",
+                "  allowed_hosts:",
+                f"    - {_PUBLIC_TEST_HOST}",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
     client = _client()
     submit = client.post(
@@ -279,7 +294,10 @@ def test_export_approved_report_to_webhook(tmp_path: Path, monkeypatch: pytest.M
 
     exported = client.post(
         f"/analysis-jobs/{job_id}/reports/{incident_id}/export-webhook",
-        json={"destination_url": "https://example.test/webhook"},
+        json={
+            "destination_url": f"https://{_PUBLIC_TEST_HOST}/webhook",
+            "config_path": str(config_path),
+        },
     )
     assert exported.status_code == 200
     payload = exported.json()

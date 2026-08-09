@@ -8,6 +8,7 @@ import httpx
 
 from incident_agent.core.settings import PrometheusConfig
 from incident_agent.schemas.events import MetricPoint
+from incident_agent.utils.security import validate_outbound_url
 
 
 def fetch_prometheus_metrics(
@@ -22,7 +23,12 @@ def fetch_prometheus_metrics(
         return []
 
     base_url = config.base_url.rstrip("/")
-    endpoint = f"{base_url}/api/v1/query_range"
+    endpoint = validate_outbound_url(
+        f"{base_url}/api/v1/query_range",
+        allowed_hosts=config.allowed_hosts,
+        allowed_schemes={"http", "https"} if config.allow_http else {"https"},
+        allow_private_networks=config.allow_private_networks,
+    )
     points: list[MetricPoint] = []
 
     for metric_name, query in sorted(config.metric_queries.items()):
@@ -32,9 +38,14 @@ def fetch_prometheus_metrics(
             "end": end_time.astimezone(UTC).isoformat(),
             "step": str(config.step_seconds),
         }
-        with httpx.Client(timeout=config.timeout_seconds) as client:
+        with httpx.Client(timeout=config.timeout_seconds, follow_redirects=False) as client:
             response = client.get(endpoint, params=params)
 
+        if 300 <= response.status_code < 400:
+            raise ValueError(
+                f"Prometheus query_range redirect blocked for metric '{metric_name}' "
+                f"with status {response.status_code}."
+            )
         if response.status_code >= 400:
             raise ValueError(
                 f"Prometheus query_range failed for metric '{metric_name}' "

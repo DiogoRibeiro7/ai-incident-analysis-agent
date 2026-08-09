@@ -69,6 +69,9 @@ class PrometheusConfig(BaseModel):
     timeout_seconds: float = 10.0
     step_seconds: int = 60
     metric_queries: dict[str, str] = Field(default_factory=dict)
+    allowed_hosts: list[str] = Field(default_factory=list)
+    allow_http: bool = False
+    allow_private_networks: bool = False
 
 
 class WebhookExportConfig(BaseModel):
@@ -78,6 +81,10 @@ class WebhookExportConfig(BaseModel):
     timeout_seconds: float = 10.0
     max_retries: int = 2
     retry_backoff_seconds: float = 1.0
+    allowed_urls: list[str] = Field(default_factory=list)
+    allowed_hosts: list[str] = Field(default_factory=list)
+    allow_http: bool = False
+    allow_private_networks: bool = False
 
 
 class SecurityConfig(BaseModel):

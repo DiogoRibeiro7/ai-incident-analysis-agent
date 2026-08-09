@@ -9,6 +9,8 @@ from typer.testing import CliRunner
 
 from incident_agent.cli import app
 
+_PUBLIC_TEST_HOST = "93.184.216.34"
+
 
 def test_validate_data_command(tmp_path: Path) -> None:
     logs_path = tmp_path / "logs.jsonl"
@@ -461,6 +463,19 @@ def test_export_approved_webhook_command(tmp_path: Path, monkeypatch: pytest.Mon
             return httpx.Response(status_code=200, json={"payload_id": "hook-1"})
 
     monkeypatch.setattr("incident_agent.export.webhook.httpx.Client", _FakeClient)
+    config_path = tmp_path / "webhook.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "webhook_export:",
+                "  allowed_urls:",
+                f"    - https://{_PUBLIC_TEST_HOST}/webhook",
+                "  allowed_hosts:",
+                f"    - {_PUBLIC_TEST_HOST}",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
     run_dir = _prepare_pipeline_artifacts(tmp_path)
     reports_path = run_dir / "reports" / "final_reports.json"
@@ -504,7 +519,9 @@ def test_export_approved_webhook_command(tmp_path: Path, monkeypatch: pytest.Mon
             "--incident-id",
             incident_id,
             "--destination-url",
-            "https://example.test/webhook",
+            f"https://{_PUBLIC_TEST_HOST}/webhook",
+            "--config",
+            str(config_path),
         ],
     )
     assert result.exit_code == 0
