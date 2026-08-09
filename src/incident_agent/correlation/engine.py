@@ -18,6 +18,12 @@ class CorrelationConfig(BaseModel):
 
     max_time_distance_minutes: int = 10
     minimum_evidence_count: int = 2
+    relationship_threshold: float = 1.0
+    temporal_weight: float = 0.4
+    same_service_weight: float = 1.0
+    dependency_weight: float = 0.8
+    cross_signal_weight: float = 0.5
+    same_family_weight: float = 0.2
     severity_weighting: dict[str, float] = Field(
         default_factory=lambda: {
             "error_rate_spike": 1.1,
@@ -70,19 +76,17 @@ def correlate_anomalies(
 
     clusters: list[list[AnomalyCandidate]] = []
     for anomaly in ordered:
-        matching_indexes = [
-            index
-            for index, cluster in enumerate(clusters)
-            if _is_related(anomaly, cluster, config, dependency_graph)
-        ]
-        if not matching_indexes:
+        matching_index = _best_cluster_index(
+            anomaly=anomaly,
+            clusters=clusters,
+            config=config,
+            dependency_graph=dependency_graph,
+        )
+        if matching_index is None:
             clusters.append([anomaly])
             continue
 
-        first_index = matching_indexes[0]
-        clusters[first_index].append(anomaly)
-        for extra_index in reversed(matching_indexes[1:]):
-            clusters[first_index].extend(clusters.pop(extra_index))
+        clusters[matching_index].append(anomaly)
 
     incidents: list[CorrelatedIncidentCandidate] = []
     for cluster in clusters:
@@ -142,33 +146,137 @@ def load_dependency_graph_for_correlation(config: CorrelationConfig) -> ServiceD
     return load_service_dependency_graph(config.dependency_graph_path)
 
 
-def _is_related(
+def _best_cluster_index(
+    *,
+    anomaly: AnomalyCandidate,
+    clusters: list[list[AnomalyCandidate]],
+    config: CorrelationConfig,
+    dependency_graph: ServiceDependencyGraph,
+) -> int | None:
+    scored_matches: list[tuple[float, int]] = []
+    for index, cluster in enumerate(clusters):
+        pair_scores = [
+            _relationship_score(
+                first=existing,
+                second=anomaly,
+                config=config,
+                dependency_graph=dependency_graph,
+            )
+            for existing in cluster
+        ]
+        if (
+            not pair_scores
+            or max(pair_scores) < config.relationship_threshold
+            or not _cluster_supports_candidate(
+                anomaly=anomaly,
+                cluster=cluster,
+                config=config,
+                dependency_graph=dependency_graph,
+            )
+        ):
+            continue
+        scored_matches.append((max(pair_scores), index))
+
+    if not scored_matches:
+        return None
+    return sorted(scored_matches, key=lambda item: (-item[0], item[1]))[0][1]
+
+
+def _relationship_score(
+    *,
+    first: AnomalyCandidate,
+    second: AnomalyCandidate,
+    config: CorrelationConfig,
+    dependency_graph: ServiceDependencyGraph,
+) -> float:
+    time_score = _temporal_score(
+        first,
+        second,
+        config.max_time_distance_minutes,
+    )
+    if time_score <= 0.0:
+        return 0.0
+
+    same_service = (
+        first.affected_service == second.affected_service and first.affected_service != "global"
+    )
+    dependency_related = (
+        first.affected_service != "global"
+        and second.affected_service != "global"
+        and dependency_graph.are_related(first.affected_service, second.affected_service)
+    )
+    cross_signal = same_service and first.anomaly_type != second.anomaly_type
+    same_family = first.anomaly_type == second.anomaly_type
+
+    return (config.temporal_weight * time_score) + _structural_score(
+        same_service=same_service,
+        dependency_related=dependency_related,
+        cross_signal=cross_signal,
+        same_family=same_family,
+        config=config,
+    )
+
+
+def _cluster_supports_candidate(
+    *,
     anomaly: AnomalyCandidate,
     cluster: list[AnomalyCandidate],
     config: CorrelationConfig,
     dependency_graph: ServiceDependencyGraph,
 ) -> bool:
-    for existing in cluster:
-        if not _is_temporally_close(existing, anomaly, config.max_time_distance_minutes):
-            continue
+    candidate_service = anomaly.affected_service
+    cluster_services = {
+        existing.affected_service for existing in cluster if existing.affected_service != "global"
+    }
 
-        same_service = (
-            anomaly.affected_service == existing.affected_service
-            and anomaly.affected_service != "global"
-        )
-        dependency_related = (
-            anomaly.affected_service != "global"
-            and existing.affected_service != "global"
-            and dependency_graph.are_related(anomaly.affected_service, existing.affected_service)
-        )
-        same_family = anomaly.anomaly_type == existing.anomaly_type
-        cross_signal = (
-            anomaly.affected_service == existing.affected_service
-            and anomaly.anomaly_type != existing.anomaly_type
-        )
-        if same_service or dependency_related or same_family or cross_signal:
-            return True
-    return False
+    if len(cluster_services) <= 1 or candidate_service in cluster_services:
+        return True
+
+    if candidate_service != "global" and all(
+        dependency_graph.are_related(candidate_service, service) for service in cluster_services
+    ):
+        return True
+
+    return _has_cross_signal_support([*cluster, anomaly]) and any(
+        candidate_service != "global"
+        and existing.affected_service != "global"
+        and dependency_graph.are_related(candidate_service, existing.affected_service)
+        for existing in cluster
+    )
+
+
+def _has_cross_signal_support(anomalies: list[AnomalyCandidate]) -> bool:
+    return len({anomaly.anomaly_type for anomaly in anomalies}) > 1
+
+
+def _structural_score(
+    *,
+    same_service: bool,
+    dependency_related: bool,
+    cross_signal: bool,
+    same_family: bool,
+    config: CorrelationConfig,
+) -> float:
+    return (
+        (config.same_service_weight if same_service else 0.0)
+        + (config.dependency_weight if dependency_related else 0.0)
+        + (config.cross_signal_weight if cross_signal else 0.0)
+        + (config.same_family_weight if same_family else 0.0)
+    )
+
+
+def _temporal_score(
+    first: AnomalyCandidate,
+    second: AnomalyCandidate,
+    max_time_distance_minutes: int,
+) -> float:
+    threshold = timedelta(minutes=max_time_distance_minutes)
+    window_gap = _window_gap(first, second)
+    if window_gap > threshold:
+        return 0.0
+    if threshold.total_seconds() <= 0:
+        return 1.0 if window_gap == timedelta(0) else 0.0
+    return 1.0 - (window_gap.total_seconds() / threshold.total_seconds())
 
 
 def _is_temporally_close(
@@ -176,15 +284,17 @@ def _is_temporally_close(
     second: AnomalyCandidate,
     max_time_distance_minutes: int,
 ) -> bool:
-    threshold = timedelta(minutes=max_time_distance_minutes)
-    window_gap = max(
+    return _temporal_score(first, second, max_time_distance_minutes) > 0.0
+
+
+def _window_gap(first: AnomalyCandidate, second: AnomalyCandidate) -> timedelta:
+    return max(
         timedelta(0),
         max(
             second.timestamp_window_start - first.timestamp_window_end,
             first.timestamp_window_start - second.timestamp_window_end,
         ),
     )
-    return window_gap <= threshold
 
 
 def _rank_primary_service(
