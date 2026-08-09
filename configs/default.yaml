@@ -132,6 +132,12 @@ anomaly_detection:
 correlation:
   max_time_distance_minutes: 10
   minimum_evidence_count: 2
+  relationship_threshold: 1.0
+  temporal_weight: 0.4
+  same_service_weight: 1.0
+  dependency_weight: 0.8
+  cross_signal_weight: 0.5
+  same_family_weight: 0.2
   severity_weighting:
     error_rate_spike: 1.1
     latency_spike: 1.0

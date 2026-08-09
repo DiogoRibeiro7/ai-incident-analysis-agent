@@ -11,15 +11,22 @@ Group anomaly candidates into coherent incident candidates and rank the most lik
 - `src/incident_agent/services/correlate.py`
 - `src/incident_agent/schemas/incident.py`
 
-## Correlation rules
+## Correlation scoring
 
-Anomalies are grouped when they are:
-- close in time (`max_time_distance_minutes`),
-- and related by at least one condition:
-  - same service,
-  - dependency relationship,
-  - same anomaly family,
-  - cross-signal agreement on the same service.
+Anomalies are grouped with an explicit relationship score. The score combines:
+- temporal proximity within `max_time_distance_minutes`,
+- same-service evidence,
+- dependency-graph evidence,
+- cross-signal agreement on the same service,
+- same anomaly family.
+
+Same-family evidence is intentionally weak and cannot group two anomalies by
+itself. A new anomaly needs a local relationship score at or above
+`relationship_threshold` before it can join a cluster. Larger multi-service
+clusters also require same-service continuity, direct dependency coverage, or
+cross-signal support. This keeps close, well-supported cascades together while
+preventing broad transitive chains from turning loosely related events into one
+large incident.
 
 Clusters with fewer than `minimum_evidence_count` are dropped.
 
@@ -37,6 +44,12 @@ Top score becomes `suspected_primary_service`.
 `configs/default.yaml` includes a `correlation` section for:
 - `max_time_distance_minutes`
 - `minimum_evidence_count`
+- `relationship_threshold`
+- `temporal_weight`
+- `same_service_weight`
+- `dependency_weight`
+- `cross_signal_weight`
+- `same_family_weight`
 - `severity_weighting`
 - `dependency_downstream_bonus`
 - `dependency_upstream_penalty`
