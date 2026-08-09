@@ -47,3 +47,8 @@ Config section in `configs/default.yaml`:
 
 Environment variable for OpenAI:
 - `INCIDENT_AGENT_OPENAI_API_KEY`
+
+`INCIDENT_AGENT_OPENAI_API_KEY` is the canonical key name used by both runtime
+provider initialization and configuration security warnings. The generic
+`OPENAI_API_KEY` variable is not read by this project; set the repository
+specific variable instead.

@@ -61,6 +61,17 @@ def test_cached_provider_reuses_deterministic_completion(tmp_path: Path) -> None
 
 def test_openai_provider_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("INCIDENT_AGENT_OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with pytest.raises(LLMProviderError):
+        OpenAIProvider()
+
+
+def test_openai_provider_ignores_generic_openai_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("INCIDENT_AGENT_OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "obsolete-key")
+
     with pytest.raises(LLMProviderError):
         OpenAIProvider()
 
