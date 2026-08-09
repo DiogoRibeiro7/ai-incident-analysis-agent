@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from incident_agent.anomaly_detection.common import DetectorThresholds
@@ -15,6 +15,7 @@ from incident_agent.normalization.timeline import (
     load_normalization_config,
 )
 from incident_agent.schemas.events import LogEvent, MetricPoint
+from incident_agent.schemas.timeline import MissingBucketPolicy
 
 
 def test_align_events_handles_timezone_and_bucketing() -> None:
@@ -53,9 +54,11 @@ def test_align_events_handles_timezone_and_bucketing() -> None:
         config=NormalizationConfig(bucket_size_minutes=1, log_spike_threshold=1),
     )
 
-    assert len(result.events) == 4
-    assert result.events[0].timestamp.isoformat() == "2026-03-20T09:00:30+00:00"
-    assert all(event.timestamp.tzinfo is not None for event in result.events)
+    observed_events = [event for event in result.events if not event.synthetic]
+    assert len(observed_events) == 4
+    assert sum(1 for event in result.events if event.synthetic) == 2
+    assert observed_events[0].timestamp.isoformat() == "2026-03-20T09:00:30+00:00"
+    assert all(event.timestamp.tzinfo is not None for event in observed_events)
     assert [bucket.bucket_start.isoformat() for bucket in result.buckets] == [
         "2026-03-20T09:00:00+00:00",
         "2026-03-20T09:01:00+00:00",
@@ -216,6 +219,151 @@ def test_log_count_bursts_are_separate_detection_evidence() -> None:
     assert "error_rate_spike" not in anomaly_types
 
 
+def test_missing_request_count_can_mean_zero_for_traffic_disappearance() -> None:
+    start = datetime.fromisoformat("2026-03-20T09:00:00Z")
+    metrics = [
+        MetricPoint(
+            timestamp=start + timedelta(minutes=index * 5),
+            service="api",
+            metric_name="request_count",
+            value=100.0,
+            unit="count",
+        )
+        for index in range(5)
+    ]
+
+    alignment = align_events_to_timeline(
+        [],
+        metrics,
+        config=NormalizationConfig(bucket_size_minutes=5),
+        analysis_end=start + timedelta(minutes=25),
+    )
+    last_bucket = alignment.buckets[-1]
+
+    result = detect_anomalies(
+        alignment,
+        bucket_size_minutes=5,
+        config=AnomalyDetectionConfig(),
+    )
+
+    assert last_bucket.bucket_start == start + timedelta(minutes=25)
+    assert last_bucket.zero_filled_metric_count == 1
+    assert any(
+        event.metric_name == "request_count"
+        and event.synthetic
+        and event.value == 0.0
+        and event.missing_policy == MissingBucketPolicy.ZERO
+        for event in alignment.events
+    )
+    assert "traffic_drop" in {anomaly.anomaly_type for anomaly in result.anomalies}
+
+
+def test_missing_request_count_can_remain_unknown() -> None:
+    start = datetime.fromisoformat("2026-03-20T09:00:00Z")
+    metrics = [
+        MetricPoint(
+            timestamp=start + timedelta(minutes=index * 5),
+            service="api",
+            metric_name="request_count",
+            value=100.0,
+            unit="count",
+        )
+        for index in range(5)
+    ]
+    config = NormalizationConfig(
+        bucket_size_minutes=5,
+        metric_missing_policies={"request_count": MissingBucketPolicy.MISSING},
+    )
+
+    alignment = align_events_to_timeline(
+        [],
+        metrics,
+        config=config,
+        analysis_end=start + timedelta(minutes=25),
+    )
+    traffic_points = _build_points(
+        alignment.events,
+        metric_kind="traffic",
+        agg="sum",
+        bucket_size_minutes=5,
+    )
+    result = detect_anomalies(
+        alignment,
+        bucket_size_minutes=5,
+        config=AnomalyDetectionConfig(),
+    )
+
+    assert alignment.buckets[-1].unknown_missing_metric_count == 1
+    assert all(point.value == 100.0 for point in traffic_points)
+    assert "traffic_drop" not in {anomaly.anomaly_type for anomaly in result.anomalies}
+
+
+def test_missing_cpu_observation_is_unknown_not_zero() -> None:
+    start = datetime.fromisoformat("2026-03-20T09:00:00Z")
+    metrics = [
+        MetricPoint(
+            timestamp=start + timedelta(minutes=index * 5),
+            service="api",
+            metric_name="cpu_usage",
+            value=55.0,
+            unit="percent",
+        )
+        for index in range(5)
+    ]
+
+    alignment = align_events_to_timeline(
+        [],
+        metrics,
+        config=NormalizationConfig(bucket_size_minutes=5),
+        analysis_end=start + timedelta(minutes=25),
+    )
+    cpu_points = _build_points(
+        alignment.events,
+        metric_kind="cpu",
+        agg="mean",
+        bucket_size_minutes=5,
+    )
+
+    assert alignment.buckets[-1].unknown_missing_metric_count == 1
+    assert all(point.value == 55.0 for point in cpu_points)
+    assert not any(point.bucket_start == start + timedelta(minutes=25) for point in cpu_points)
+
+
+def test_missing_heartbeat_represents_unavailable() -> None:
+    start = datetime.fromisoformat("2026-03-20T09:00:00Z")
+    metrics = [
+        MetricPoint(
+            timestamp=start + timedelta(minutes=index * 5),
+            service="api",
+            metric_name="heartbeat",
+            value=1.0,
+        )
+        for index in range(5)
+    ]
+
+    alignment = align_events_to_timeline(
+        [],
+        metrics,
+        config=NormalizationConfig(bucket_size_minutes=5),
+        analysis_end=start + timedelta(minutes=25),
+    )
+    result = detect_anomalies(
+        alignment,
+        bucket_size_minutes=5,
+        config=AnomalyDetectionConfig(),
+    )
+
+    assert alignment.buckets[-1].unavailable_missing_metric_count == 1
+    assert any(
+        event.metric_name == "heartbeat"
+        and event.synthetic
+        and event.value == 1.0
+        and event.missing_policy == MissingBucketPolicy.UNAVAILABLE
+        for event in alignment.events
+    )
+    assert "service_unavailability" in {anomaly.anomaly_type for anomaly in result.anomalies}
+
+
 def test_load_normalization_config_from_yaml(tmp_path: Path) -> None:
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
@@ -230,6 +378,9 @@ def test_load_normalization_config_from_yaml(tmp_path: Path) -> None:
                 "  memory_metrics: [memory_usage_mb]",
                 "  http_error_rate_metrics: [error_rate]",
                 "  service_failure_metrics: [error_rate]",
+                "  metric_missing_policies:",
+                "    request_count: zero",
+                "    heartbeat: unavailable",
             ]
         ),
         encoding="utf-8",
@@ -239,3 +390,5 @@ def test_load_normalization_config_from_yaml(tmp_path: Path) -> None:
 
     assert loaded.bucket_size_minutes == 15
     assert loaded.log_spike_threshold == 3
+    assert loaded.metric_missing_policies["request_count"] == MissingBucketPolicy.ZERO
+    assert loaded.metric_missing_policies["heartbeat"] == MissingBucketPolicy.UNAVAILABLE

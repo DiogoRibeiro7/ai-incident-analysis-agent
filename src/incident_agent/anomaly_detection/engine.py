@@ -22,7 +22,11 @@ from incident_agent.anomaly_detection.memory import detect_memory_anomalies
 from incident_agent.anomaly_detection.traffic import detect_traffic_drops
 from incident_agent.core.settings import load_settings_from_yaml
 from incident_agent.schemas.anomaly import AnomalyDetectionResult
-from incident_agent.schemas.timeline import TimelineAlignmentResult, TimelineEvent
+from incident_agent.schemas.timeline import (
+    MissingBucketPolicy,
+    TimelineAlignmentResult,
+    TimelineEvent,
+)
 
 
 class AnomalyDetectionConfig(BaseModel):
@@ -293,6 +297,12 @@ def _extract_metric_value(event: TimelineEvent, *, metric_kind: str) -> float | 
     if metric_kind == "availability":
         if "service_unavailable" in metric_name or "failure_rate" in metric_name:
             return event.value
+        if "heartbeat" in metric_name:
+            if event.synthetic and event.missing_policy == MissingBucketPolicy.UNAVAILABLE:
+                return 1.0
+            if event.value is not None:
+                return 0.0
+            return None
         if event.source == "log" and any(
             token in message for token in ["unavailable", "outage", "down"]
         ):

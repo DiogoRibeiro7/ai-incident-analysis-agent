@@ -22,9 +22,16 @@ Config model:
   - `memory_metrics`
   - `http_error_rate_metrics`
   - `service_failure_metrics`
+  - `metric_missing_policies`
 
 HTTP error-rate metrics and log severity counts stay in separate units. Error-rate metrics are
 aggregated as ratios, while ERROR and CRITICAL logs are counted separately.
+
+Normalization builds an explicit bucket grid across the analysis window. Expected-but-absent
+metrics use configured missing semantics:
+- `zero`: emit a synthetic zero value, used for request-count style traffic metrics.
+- `missing`: emit an explicit unknown entry with no numeric value, used for CPU and latency.
+- `unavailable`: emit an unavailable signal, used for heartbeat-style metrics.
 
 ## Unified timeline representation
 
@@ -38,10 +45,14 @@ Schema file: `src/incident_agent/schemas/timeline.py`
 
 For each bucket, the pipeline computes:
 - `error_count`
+- `synthetic_event_count`
 - `error_log_count`
 - `critical_log_count`
 - `warn_count`
 - `unique_services_affected`
+- `zero_filled_metric_count`
+- `unavailable_missing_metric_count`
+- `unknown_missing_metric_count`
 - `http_error_rate`
 - `p95_latency`
 - `cpu_mean` / `cpu_max`
