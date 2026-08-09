@@ -5,6 +5,7 @@
 [![Smoke](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/smoke.yml/badge.svg?branch=main)](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/smoke.yml)
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
 [![Poetry](https://img.shields.io/badge/deps-poetry-informational.svg)](https://python-poetry.org/)
+[![Release](https://img.shields.io/github/v/release/DiogoRibeiro7/ai-incident-analysis-agent)](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 Incident analysis system for logs and metrics, built as an AI engineering portfolio project. It ingests operational data, normalizes it into aligned time windows, detects anomalies, correlates incident candidates, runs deterministic RCA, and generates structured reports through a provider abstraction.
@@ -12,6 +13,8 @@ Incident analysis system for logs and metrics, built as an AI engineering portfo
 ## Security
 
 Security reporting and support policy are documented in [SECURITY.md](SECURITY.md).
+Support scope is documented in [SUPPORT.md](SUPPORT.md). Project conduct
+expectations are documented in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Motivation
 
@@ -151,7 +154,7 @@ Tagged releases publish container images to GitHub Container Registry:
 Example pull:
 
 ```bash
-docker pull ghcr.io/diogoribeiro7/ai-incident-analysis-agent:v0.1.0
+docker pull ghcr.io/diogoribeiro7/ai-incident-analysis-agent:v0.2.0
 ```
 
 ## How the Pipeline Works
@@ -358,7 +361,9 @@ tests/               # Unit and integration tests
 
 - [CHANGELOG.md](CHANGELOG.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - [LICENSE](LICENSE)
+- [SUPPORT.md](SUPPORT.md)
 - [clean_clone_validation.md](docs/clean_clone_validation.md)
 - [historical_incident_corpus.md](docs/historical_incident_corpus.md)
 - [runbook_ingestion.md](docs/runbook_ingestion.md)

@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata in this file."
+title: "AI Incident Analysis Agent"
+version: "0.2.0"
+type: software
+authors:
+  - family-names: Ribeiro
+    given-names: Diogo
+    orcid: "https://orcid.org/0009-0001-2022-7072"
+    affiliation: "ESMAD - School of Media Arts and Design, Polytechnic of Porto"
+repository-code: "https://github.com/DiogoRibeiro7/ai-incident-analysis-agent"
+license: MIT
+keywords:
+  - incident response
+  - root cause analysis
+  - observability
+  - logs
+  - metrics
+  - anomaly detection
+  - AI engineering
+

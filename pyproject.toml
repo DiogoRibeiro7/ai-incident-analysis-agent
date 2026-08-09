@@ -1,22 +1,55 @@
-[tool.poetry]
+[project]
 name = "ai-incident-analysis-agent"
 version = "0.2.0"
 description = "AI agent scaffold for incident analysis over logs and metrics."
-authors = ["Diogo Ribeiro"]
 readme = "README.md"
-packages = [{ include = "incident_agent", from = "src" }]
+requires-python = ">=3.12,<4.0"
+license = "MIT"
+authors = [{ name = "Diogo Ribeiro" }]
+keywords = [
+    "incident-response",
+    "root-cause-analysis",
+    "observability",
+    "logs",
+    "metrics",
+    "anomaly-detection",
+    "ai-engineering",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: System :: Logging",
+]
+dependencies = [
+    "fastapi>=0.135.1,<0.142.0",
+    "uvicorn[standard]>=0.35,<0.53",
+    "pydantic>=2.11.7,<3.0.0",
+    "pydantic-settings>=2.11.0,<3.0.0",
+    "typer>=0.17.4,<0.28.0",
+    "rich>=14.1,<16.0",
+    "pyyaml>=6.0.2,<7.0.0",
+    "httpx>=0.28.1,<0.29.0",
+    "starlette>=0.49.1",
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-fastapi = ">=0.135.1,<0.142.0"
-uvicorn = { extras = ["standard"], version = ">=0.35,<0.53" }
-pydantic = "^2.11.7"
-pydantic-settings = "^2.11.0"
-typer = ">=0.17.4,<0.28.0"
-rich = ">=14.1,<16.0"
-pyyaml = "^6.0.2"
-httpx = "^0.28.1"
-starlette = ">=0.49.1"
+[project.urls]
+Homepage = "https://github.com/DiogoRibeiro7/ai-incident-analysis-agent"
+Repository = "https://github.com/DiogoRibeiro7/ai-incident-analysis-agent"
+Documentation = "https://github.com/DiogoRibeiro7/ai-incident-analysis-agent#readme"
+Issues = "https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/issues"
+Changelog = "https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/blob/main/CHANGELOG.md"
+
+[project.scripts]
+incident-agent = "incident_agent.cli:app"
+
+[tool.poetry]
+packages = [{ include = "incident_agent", from = "src" }]
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.4.1,<10.0.0"
@@ -25,9 +58,6 @@ ruff = ">=0.12.7,<0.17.0"
 mypy = ">=1.17.1,<3.0.0"
 pre-commit = "^4.2.0"
 types-pyyaml = "^6.0.12.20250915"
-
-[tool.poetry.scripts]
-incident-agent = "incident_agent.cli:app"
 
 [tool.ruff]
 line-length = 100

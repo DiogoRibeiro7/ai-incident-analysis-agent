@@ -8,6 +8,12 @@ Install dependencies:
 poetry install
 ```
 
+Install local commit hooks:
+
+```bash
+poetry run pre-commit install
+```
+
 Run the same checks enforced in CI:
 
 ```bash
@@ -22,6 +28,12 @@ Available local targets:
 - `make test-integration`
 - `make coverage`
 - `make quality`
+
+Run all pre-commit hooks manually:
+
+```bash
+poetry run pre-commit run --all-files
+```
 
 ## Coverage policy
 
@@ -40,6 +52,22 @@ CI currently fails on:
 - mypy failures
 - test failures
 - coverage dropping below the enforced threshold
+- unresolved Markdown links
+- evaluation regression-gate failures
+- container image build failures
+
+## Pull request expectations
+
+Before opening a PR:
+
+- keep the change focused and avoid unrelated refactors;
+- update tests when behavior changes;
+- update documentation and changelog entries for user-facing changes;
+- run `make quality`;
+- include validation evidence in the PR template.
+
+Security-sensitive changes should call out affected trust boundaries, file-path
+policy, outbound-network policy, or credential-handling behavior.
 
 ## Maintainer operations
 
