@@ -18,6 +18,7 @@ from incident_agent.connectors.prometheus import fetch_prometheus_metrics
 from incident_agent.core.settings import (
     GroundingConfig,
     KnowledgeConfig,
+    SecurityConfig,
     load_artifact_storage_config,
     load_grounding_config,
     load_knowledge_config,
@@ -68,7 +69,11 @@ from incident_agent.utils.observability import (
     log_event,
 )
 from incident_agent.utils.resilience import JsonFileCache, file_fingerprint, stable_cache_key
-from incident_agent.utils.security import config_security_warnings
+from incident_agent.utils.security import (
+    PathPolicyError,
+    config_security_warnings,
+    load_security_config_safe,
+)
 
 logger = get_logger(__name__)
 
@@ -335,6 +340,7 @@ def run_pipeline_from_files(
                         knowledge_config = knowledge_config.model_copy(
                             update={"source_paths": knowledge_source_paths}
                         )
+                    security_config = load_security_config_safe(config_path)
                     provider = create_provider(llm_config, config_path=config_path)
                     reports, llm_usage_summary, grounding_summaries = _generate_final_reports(
                         rca_result,
@@ -342,6 +348,7 @@ def run_pipeline_from_files(
                         completion_model=llm_config.completion_model,
                         knowledge_config=knowledge_config,
                         grounding_config=grounding_config,
+                        security_config=security_config,
                     )
                     failed_grounding = [
                         summary for summary in grounding_summaries if not summary.passed
@@ -358,6 +365,8 @@ def run_pipeline_from_files(
                             )
                         )
                         warnings.append("One or more reports failed strict grounding validation.")
+                except PathPolicyError:
+                    raise
                 except Exception as error:
                     failure_summaries.append(
                         PipelineFailureSummary(
@@ -454,6 +463,7 @@ def _generate_final_reports(
     completion_model: str,
     knowledge_config: KnowledgeConfig,
     grounding_config: GroundingConfig,
+    security_config: SecurityConfig,
 ) -> tuple[list[FinalIncidentReport], LLMUsageSummary, list[GroundingSummary]]:
     reports: list[FinalIncidentReport] = []
     usages: list[tuple[str, LLMUsage]] = []
@@ -469,6 +479,8 @@ def _generate_final_reports(
             evidence_bundle=bundle,
             summary_features=summary,
             root_cause_hypothesis=hypothesis,
+            security_config=security_config,
+            workspace_root=Path.cwd(),
         )
         context = PromptRenderContext(
             incident_id=hypothesis.incident_id,
