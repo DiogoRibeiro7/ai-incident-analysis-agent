@@ -8,8 +8,9 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from incident_agent.core.settings import KnowledgeConfig
+from incident_agent.core.settings import KnowledgeConfig, SecurityConfig
 from incident_agent.schemas.rca import EvidenceBundle, IncidentSummaryFeatures, RootCauseHypothesis
+from incident_agent.utils.security import validate_retrieval_path
 
 _TEXT_EXTENSIONS = {".md", ".txt", ".log"}
 _JSON_EXTENSIONS = {".json", ".jsonl"}
@@ -37,6 +38,8 @@ def retrieve_context(
     evidence_bundle: EvidenceBundle,
     summary_features: IncidentSummaryFeatures,
     root_cause_hypothesis: RootCauseHypothesis,
+    security_config: SecurityConfig | None = None,
+    workspace_root: Path | None = None,
 ) -> list[RetrievedSnippet]:
     """Return deterministic top-k snippets for one incident context."""
 
@@ -47,7 +50,11 @@ def retrieve_context(
     if not terms:
         return []
 
-    candidates = _load_candidates(config.source_paths)
+    candidates = _load_candidates(
+        config.source_paths,
+        security_config=security_config or SecurityConfig(),
+        workspace_root=workspace_root or Path.cwd(),
+    )
     if not candidates:
         return []
 
@@ -83,20 +90,48 @@ def _build_query_terms(
     return sorted(term for term in terms if term.strip())
 
 
-def _load_candidates(source_paths: list[str]) -> list[_SnippetCandidate]:
+def _load_candidates(
+    source_paths: list[str],
+    *,
+    security_config: SecurityConfig,
+    workspace_root: Path,
+) -> list[_SnippetCandidate]:
     candidates: list[_SnippetCandidate] = []
     for source_path in sorted(source_paths):
+        validate_retrieval_path(
+            source_path,
+            config=security_config,
+            workspace_root=workspace_root,
+        )
         base = Path(source_path)
         if base.is_file():
-            candidates.extend(_load_file_candidates(base))
+            candidates.extend(
+                _load_file_candidates(
+                    base,
+                    security_config=security_config,
+                    workspace_root=workspace_root,
+                )
+            )
             continue
         if base.is_dir():
             for path in sorted(item for item in base.rglob("*") if item.is_file()):
-                candidates.extend(_load_file_candidates(path))
+                candidates.extend(
+                    _load_file_candidates(
+                        path,
+                        security_config=security_config,
+                        workspace_root=workspace_root,
+                    )
+                )
     return candidates
 
 
-def _load_file_candidates(path: Path) -> list[_SnippetCandidate]:
+def _load_file_candidates(
+    path: Path,
+    *,
+    security_config: SecurityConfig,
+    workspace_root: Path,
+) -> list[_SnippetCandidate]:
+    validate_retrieval_path(path, config=security_config, workspace_root=workspace_root)
     if path.suffix.lower() not in _TEXT_EXTENSIONS | _JSON_EXTENSIONS:
         return []
     try:

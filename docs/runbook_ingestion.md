@@ -20,7 +20,10 @@ Load operational runbooks as retrieval context so reports can include procedure-
 
 - Oversized files (over internal size cap) are skipped.
 - Malformed JSON files in configured knowledge paths are skipped without failing the run.
-- Unreadable files are ignored to keep retrieval best-effort.
+- Unreadable or malformed files are ignored to keep retrieval best-effort.
+- Source paths must resolve under `security.allowed_read_paths`; path traversal,
+  absolute paths outside the allowlist, and symlinks to outside targets are
+  rejected before file loading.
 
 ## Usage
 

@@ -15,15 +15,35 @@ from incident_agent.core.settings import (
 _SECRET_KEYWORDS = ("token", "secret", "password", "api_key", "apikey", "webhook_url")
 
 
+class PathPolicyError(ValueError):
+    """Raised when a filesystem path violates the configured security policy."""
+
+
 def validate_read_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> None:
     """Ensure read path is constrained to approved roots."""
 
-    if not config.enabled:
-        return
-    resolved = _resolve_under_workspace(path, workspace_root=workspace_root)
-    allowed_roots = _resolve_allowed_roots(config.allowed_read_paths, workspace_root=workspace_root)
-    if not any(_is_relative_to(resolved, root) for root in allowed_roots):
-        raise ValueError(f"Read path not allowed by security policy: {path}")
+    _validate_read_path(
+        path,
+        config=config,
+        workspace_root=workspace_root,
+        include_system_temp=True,
+    )
+
+
+def validate_retrieval_path(
+    path: str | Path,
+    *,
+    config: SecurityConfig,
+    workspace_root: Path,
+) -> None:
+    """Ensure retrieval source paths are constrained to configured read roots."""
+
+    _validate_read_path(
+        path,
+        config=config,
+        workspace_root=workspace_root,
+        include_system_temp=False,
+    )
 
 
 def validate_write_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> None:
@@ -35,9 +55,29 @@ def validate_write_path(path: str | Path, *, config: SecurityConfig, workspace_r
     allowed_roots = _resolve_allowed_roots(
         config.allowed_write_paths,
         workspace_root=workspace_root,
+        include_system_temp=True,
     )
     if not any(_is_relative_to(resolved, root) for root in allowed_roots):
-        raise ValueError(f"Write path not allowed by security policy: {path}")
+        raise PathPolicyError(f"Write path not allowed by security policy: {path}")
+
+
+def _validate_read_path(
+    path: str | Path,
+    *,
+    config: SecurityConfig,
+    workspace_root: Path,
+    include_system_temp: bool,
+) -> None:
+    if not config.enabled:
+        return
+    resolved = _resolve_under_workspace(path, workspace_root=workspace_root)
+    allowed_roots = _resolve_allowed_roots(
+        config.allowed_read_paths,
+        workspace_root=workspace_root,
+        include_system_temp=include_system_temp,
+    )
+    if not any(_is_relative_to(resolved, root) for root in allowed_roots):
+        raise PathPolicyError(f"Read path not allowed by security policy: {path}")
 
 
 def load_security_config_safe(config_path: str | Path) -> SecurityConfig:
@@ -85,14 +125,20 @@ def _resolve_under_workspace(path: str | Path, *, workspace_root: Path) -> Path:
     return candidate.resolve(strict=False)
 
 
-def _resolve_allowed_roots(values: list[str], *, workspace_root: Path) -> list[Path]:
+def _resolve_allowed_roots(
+    values: list[str],
+    *,
+    workspace_root: Path,
+    include_system_temp: bool,
+) -> list[Path]:
     roots: list[Path] = []
     for value in values:
         root = Path(value)
         if not root.is_absolute():
             root = workspace_root / root
         roots.append(root.resolve(strict=False))
-    roots.append(Path(tempfile.gettempdir()).resolve(strict=False))
+    if include_system_temp:
+        roots.append(Path(tempfile.gettempdir()).resolve(strict=False))
     return roots
 
 

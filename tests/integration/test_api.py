@@ -55,6 +55,26 @@ def test_analyze_pipeline_rejects_disallowed_paths() -> None:
     assert "not allowed by security policy" in response.json()["detail"]
 
 
+def test_analyze_pipeline_rejects_disallowed_retrieval_path(tmp_path: Path) -> None:
+    client = _client()
+    secret_path = tmp_path / "secret.md"
+    secret_path.write_text("checkout-service internal note", encoding="utf-8")
+
+    response = client.post(
+        "/analyze-pipeline",
+        json={
+            "logs_path": "data/sample/incident/anomaly_logs.csv",
+            "metrics_path": "data/sample/incident/anomaly_metrics.csv",
+            "artifact_root": str(tmp_path / "artifacts"),
+            "retrieval_enabled": True,
+            "knowledge_source_paths": [str(secret_path)],
+        },
+    )
+
+    assert response.status_code == 400
+    assert "not allowed by security policy" in response.json()["detail"]
+
+
 def test_analyze_pipeline_endpoint(tmp_path: Path) -> None:
     client = _client()
     response = client.post(

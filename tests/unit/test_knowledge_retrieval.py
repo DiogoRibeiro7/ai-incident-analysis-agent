@@ -4,7 +4,9 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from incident_agent.core.settings import KnowledgeConfig
+import pytest
+
+from incident_agent.core.settings import KnowledgeConfig, SecurityConfig
 from incident_agent.knowledge.retrieval import retrieve_context
 from incident_agent.schemas.anomaly import AnomalyCandidate
 from incident_agent.schemas.rca import EvidenceBundle, IncidentSummaryFeatures, RootCauseHypothesis
@@ -49,6 +51,10 @@ def _build_rca_context() -> tuple[EvidenceBundle, IncidentSummaryFeatures, RootC
         rationale="checkout-service has dominant severity",
     )
     return bundle, summary, hypothesis
+
+
+def _security_for(path: Path) -> SecurityConfig:
+    return SecurityConfig(allowed_read_paths=[str(path)], allowed_write_paths=["artifacts"])
 
 
 def test_retrieve_context_returns_deterministic_top_k() -> None:
@@ -127,6 +133,7 @@ def test_retrieve_context_loads_historical_incident_corpus_json(tmp_path: Path) 
         evidence_bundle=bundle,
         summary_features=summary,
         root_cause_hypothesis=hypothesis,
+        security_config=_security_for(tmp_path),
     )
 
     assert retrieved
@@ -168,6 +175,7 @@ def test_retrieve_context_loads_historical_incident_corpus_jsonl(tmp_path: Path)
         evidence_bundle=bundle,
         summary_features=summary,
         root_cause_hypothesis=hypothesis,
+        security_config=_security_for(tmp_path),
     )
 
     assert retrieved
@@ -201,6 +209,7 @@ def test_retrieve_context_chunks_markdown_runbook_by_section(tmp_path: Path) -> 
         evidence_bundle=bundle,
         summary_features=summary,
         root_cause_hypothesis=hypothesis,
+        security_config=_security_for(tmp_path),
     )
 
     assert retrieved
@@ -225,6 +234,7 @@ def test_retrieve_context_skips_malformed_json_file(tmp_path: Path) -> None:
         evidence_bundle=bundle,
         summary_features=summary,
         root_cause_hypothesis=hypothesis,
+        security_config=_security_for(tmp_path),
     )
 
     assert retrieved == []
@@ -264,6 +274,7 @@ def test_retrieve_context_loads_grafana_annotations_json(tmp_path: Path) -> None
         evidence_bundle=bundle,
         summary_features=summary,
         root_cause_hypothesis=hypothesis,
+        security_config=_security_for(tmp_path),
     )
 
     assert retrieved
@@ -271,3 +282,106 @@ def test_retrieve_context_loads_grafana_annotations_json(tmp_path: Path) -> None
     assert "source=grafana-annotation" in content
     assert "dashboard_uid=checkout-overview" in content
     assert "tags=checkout-service, latency_spike, incident" in content
+
+
+def test_retrieve_context_rejects_absolute_path_outside_allowlist(tmp_path: Path) -> None:
+    bundle, summary, hypothesis = _build_rca_context()
+    secret_path = tmp_path / "secret.txt"
+    secret_path.write_text("checkout-service secret", encoding="utf-8")
+    allowed_dir = tmp_path / "allowed"
+    allowed_dir.mkdir()
+    config = KnowledgeConfig(
+        enabled=True,
+        source_paths=[str(secret_path)],
+        top_k=3,
+        max_snippet_chars=400,
+    )
+
+    with pytest.raises(ValueError, match="Read path not allowed"):
+        retrieve_context(
+            config=config,
+            evidence_bundle=bundle,
+            summary_features=summary,
+            root_cause_hypothesis=hypothesis,
+            security_config=_security_for(allowed_dir),
+        )
+
+
+def test_retrieve_context_rejects_relative_traversal(tmp_path: Path) -> None:
+    bundle, summary, hypothesis = _build_rca_context()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    allowed_dir = workspace / "knowledge"
+    allowed_dir.mkdir()
+    (tmp_path / "secret.txt").write_text("checkout-service secret", encoding="utf-8")
+    config = KnowledgeConfig(
+        enabled=True,
+        source_paths=["../secret.txt"],
+        top_k=3,
+        max_snippet_chars=400,
+    )
+
+    with pytest.raises(ValueError, match="Read path not allowed"):
+        retrieve_context(
+            config=config,
+            evidence_bundle=bundle,
+            summary_features=summary,
+            root_cause_hypothesis=hypothesis,
+            security_config=SecurityConfig(
+                allowed_read_paths=["knowledge"],
+                allowed_write_paths=["artifacts"],
+            ),
+            workspace_root=workspace,
+        )
+
+
+def test_retrieve_context_rejects_symlink_to_outside_allowlist(tmp_path: Path) -> None:
+    bundle, summary, hypothesis = _build_rca_context()
+    allowed_dir = tmp_path / "allowed"
+    allowed_dir.mkdir()
+    secret_path = tmp_path / "secret.md"
+    secret_path.write_text("checkout-service secret", encoding="utf-8")
+    link_path = allowed_dir / "linked.md"
+    try:
+        link_path.symlink_to(secret_path)
+    except OSError as error:
+        pytest.skip(f"symlinks unavailable: {error}")
+    config = KnowledgeConfig(
+        enabled=True,
+        source_paths=[str(link_path)],
+        top_k=3,
+        max_snippet_chars=400,
+    )
+
+    with pytest.raises(ValueError, match="Read path not allowed"):
+        retrieve_context(
+            config=config,
+            evidence_bundle=bundle,
+            summary_features=summary,
+            root_cause_hypothesis=hypothesis,
+            security_config=_security_for(allowed_dir),
+        )
+
+
+def test_retrieve_context_allows_file_inside_allowlist(tmp_path: Path) -> None:
+    bundle, summary, hypothesis = _build_rca_context()
+    allowed_dir = tmp_path / "allowed"
+    allowed_dir.mkdir()
+    runbook_path = allowed_dir / "checkout.md"
+    runbook_path.write_text("checkout-service latency runbook", encoding="utf-8")
+    config = KnowledgeConfig(
+        enabled=True,
+        source_paths=[str(runbook_path)],
+        top_k=3,
+        max_snippet_chars=400,
+    )
+
+    retrieved = retrieve_context(
+        config=config,
+        evidence_bundle=bundle,
+        summary_features=summary,
+        root_cause_hypothesis=hypothesis,
+        security_config=_security_for(allowed_dir),
+    )
+
+    assert retrieved

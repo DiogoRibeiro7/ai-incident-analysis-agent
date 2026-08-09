@@ -43,5 +43,7 @@ poetry run incident-agent run-pipeline \
 ## Notes
 
 - Metadata fields are preserved in normalized retrieval chunks for filtering/ranking experiments.
+- Corpus paths must resolve under `security.allowed_read_paths`; traversal and
+  symlink escapes are rejected before retrieval reads files.
 - Records missing meaningful incident text are ignored.
 - Non-incident JSON entries still load as generic JSON chunks for backward compatibility.
