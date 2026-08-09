@@ -48,6 +48,13 @@ curl -X POST http://localhost:8000/analyze-pipeline \
 - Artifacts are persisted on host at `./artifacts`.
 - Config and data are mounted read-only from `./configs` and `./data`.
 - API container exposes port `8000` by default (`API_PORT` in `.env`).
+- The API is intended for local or trusted-network use. It does not implement
+  end-user authentication. Keep it behind your own access controls before
+  exposing it beyond a trusted environment.
+- Outbound Prometheus destinations are blocked unless configured in
+  `connectors.prometheus.allowed_hosts`. Webhook destinations must exactly match
+  `webhook_export.allowed_urls`. Private-network or HTTP destinations require
+  explicit opt-in for trusted deployments.
 
 ## Published Container Images
 

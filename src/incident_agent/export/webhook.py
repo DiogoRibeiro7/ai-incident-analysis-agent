@@ -12,6 +12,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from incident_agent.schemas.final_report import FinalIncidentReport
+from incident_agent.utils.security import OutboundUrlPolicyError, validate_outbound_url
 
 
 class WebhookExportConfig(BaseModel):
@@ -20,6 +21,10 @@ class WebhookExportConfig(BaseModel):
     timeout_seconds: float = 10.0
     max_retries: int = 2
     retry_backoff_seconds: float = 1.0
+    allowed_urls: list[str] = Field(default_factory=list)
+    allowed_hosts: list[str] = Field(default_factory=list)
+    allow_http: bool = False
+    allow_private_networks: bool = False
 
 
 class WebhookDeliveryRecord(BaseModel):
@@ -52,6 +57,20 @@ def export_report_via_webhook(
     if report.review_status != "approved":
         raise WebhookExportError("Only approved reports can be exported.")
     effective = config or WebhookExportConfig()
+    safe_destination_url = _allowed_webhook_destination(
+        requested_url=destination_url,
+        allowed_urls=effective.allowed_urls,
+    )
+    allowed_hosts = effective.allowed_hosts or [_hostname_for_allowed_url(safe_destination_url)]
+    try:
+        validated_url = validate_outbound_url(
+            safe_destination_url,
+            allowed_hosts=allowed_hosts,
+            allowed_schemes={"http", "https"} if effective.allow_http else {"https"},
+            allow_private_networks=effective.allow_private_networks,
+        )
+    except OutboundUrlPolicyError as error:
+        raise WebhookExportError(str(error)) from error
     delivery_id = f"delivery-{uuid4().hex[:12]}"
     payload = {
         "delivery_id": delivery_id,
@@ -65,8 +84,11 @@ def export_report_via_webhook(
     for attempt in range(1, effective.max_retries + 2):
         attempts = attempt
         try:
-            with httpx.Client(timeout=effective.timeout_seconds) as client:
-                response = client.post(destination_url, json=payload)
+            with httpx.Client(timeout=effective.timeout_seconds, follow_redirects=False) as client:
+                response = client.post(validated_url, json=payload)
+            if 300 <= response.status_code < 400:
+                last_error = f"Webhook redirect blocked: status {response.status_code}."
+                break
             if response.status_code >= 500:
                 last_error = f"Webhook temporary server error: status {response.status_code}."
             elif response.status_code >= 400:
@@ -114,6 +136,22 @@ def _extract_payload_id(response: httpx.Response) -> str | None:
         if isinstance(value, str):
             return value
     return None
+
+
+def _allowed_webhook_destination(*, requested_url: str, allowed_urls: list[str]) -> str:
+    requested = requested_url.strip()
+    for allowed_url in allowed_urls:
+        normalized = allowed_url.strip()
+        if requested == normalized:
+            return normalized
+    raise WebhookExportError("Webhook destination URL is not in the allowlist.")
+
+
+def _hostname_for_allowed_url(url: str) -> str:
+    parsed = httpx.URL(url)
+    if parsed.host is None:
+        raise WebhookExportError("Webhook destination URL must include a hostname.")
+    return parsed.host
 
 
 def _append_delivery_audit(*, path: Path, record: WebhookDeliveryRecord) -> None:

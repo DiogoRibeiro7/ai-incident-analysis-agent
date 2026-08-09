@@ -524,6 +524,10 @@ def export_job_report_webhook(
                 timeout_seconds=settings.timeout_seconds,
                 max_retries=settings.max_retries,
                 retry_backoff_seconds=settings.retry_backoff_seconds,
+                allowed_urls=settings.allowed_urls,
+                allowed_hosts=settings.allowed_hosts,
+                allow_http=settings.allow_http,
+                allow_private_networks=settings.allow_private_networks,
             ),
         )
     except WebhookExportError as error:

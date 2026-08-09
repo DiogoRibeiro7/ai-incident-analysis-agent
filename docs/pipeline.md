@@ -150,3 +150,17 @@ Relevant config keys in `configs/default.yaml`:
 - `connectors.prometheus.timeout_seconds`
 - `connectors.prometheus.step_seconds`
 - `connectors.prometheus.metric_queries`
+- `connectors.prometheus.allowed_hosts`
+- `connectors.prometheus.allow_http`
+- `connectors.prometheus.allow_private_networks`
+- `webhook_export.allowed_urls`
+- `webhook_export.allowed_hosts`
+- `webhook_export.allow_http`
+- `webhook_export.allow_private_networks`
+
+Outbound Prometheus and webhook URLs are default-deny. Webhook destinations must
+exactly match `webhook_export.allowed_urls`. Prometheus destination hostnames
+must be listed in `connectors.prometheus.allowed_hosts`. HTTPS is required
+unless `allow_http` is explicitly enabled, and loopback, private, link-local,
+reserved, and metadata-service address ranges are blocked unless
+`allow_private_networks` is explicitly enabled for a trusted deployment.
