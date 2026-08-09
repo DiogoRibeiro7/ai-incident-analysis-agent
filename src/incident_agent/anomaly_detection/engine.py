@@ -10,7 +10,11 @@ from statistics import mean
 from pydantic import BaseModel, Field
 
 from incident_agent.anomaly_detection.availability import detect_service_unavailability
-from incident_agent.anomaly_detection.common import DetectorThresholds, SeriesPoint
+from incident_agent.anomaly_detection.common import (
+    DetectorThresholds,
+    SeriesPoint,
+    detect_series_anomalies,
+)
 from incident_agent.anomaly_detection.cpu import detect_cpu_anomalies
 from incident_agent.anomaly_detection.error_rate import detect_error_rate_spikes
 from incident_agent.anomaly_detection.latency import detect_latency_spikes
@@ -36,6 +40,22 @@ class AnomalyDetectionConfig(BaseModel):
         )
     )
     availability: DetectorThresholds = Field(default_factory=DetectorThresholds)
+    error_logs: DetectorThresholds = Field(
+        default_factory=lambda: DetectorThresholds(
+            min_support=3,
+            z_threshold=2.5,
+            mad_multiplier=2.5,
+            min_relative_change=0.2,
+        )
+    )
+    critical_logs: DetectorThresholds = Field(
+        default_factory=lambda: DetectorThresholds(
+            min_support=3,
+            z_threshold=2.5,
+            mad_multiplier=2.5,
+            min_relative_change=0.2,
+        )
+    )
 
 
 def load_anomaly_detection_config(
@@ -86,11 +106,39 @@ def detect_anomalies(
 
     error_rate_points = _build_points(
         alignment.events,
-        metric_kind="error_rate",
+        metric_kind="http_error_rate",
         agg="mean",
         bucket_size_minutes=bucket_size_minutes,
     )
     anomalies.extend(detect_error_rate_spikes(error_rate_points, thresholds=config.error_rate))
+
+    error_log_points = _build_count_points(
+        alignment.events,
+        signal="error_log_count",
+        bucket_size_minutes=bucket_size_minutes,
+    )
+    anomalies.extend(
+        detect_series_anomalies(
+            points=error_log_points,
+            anomaly_type="error_log_burst",
+            direction="spike",
+            thresholds=config.error_logs,
+        )
+    )
+
+    critical_log_points = _build_count_points(
+        alignment.events,
+        signal="critical_log_count",
+        bucket_size_minutes=bucket_size_minutes,
+    )
+    anomalies.extend(
+        detect_series_anomalies(
+            points=critical_log_points,
+            anomaly_type="critical_log_burst",
+            direction="spike",
+            thresholds=config.critical_logs,
+        )
+    )
 
     traffic_points = _build_points(
         alignment.events,
@@ -171,6 +219,48 @@ def _build_points(
     return points
 
 
+def _build_count_points(
+    events: list[TimelineEvent],
+    *,
+    signal: str,
+    bucket_size_minutes: int,
+) -> list[SeriesPoint]:
+    bucket_starts = sorted({event.bucket_start for event in events})
+    services = sorted({event.service for event in events if event.service != "global"})
+    service_counts: dict[tuple[datetime, str], float] = defaultdict(float)
+
+    for event in events:
+        if event.signal != signal or event.value is None:
+            continue
+        service_counts[(event.bucket_start, event.service)] += event.value
+
+    points: list[SeriesPoint] = []
+    for bucket_start in bucket_starts:
+        global_count = 0.0
+        for service in services:
+            value = service_counts[(bucket_start, service)]
+            global_count += value
+            points.append(
+                SeriesPoint(
+                    bucket_start=bucket_start,
+                    bucket_end=bucket_start + timedelta(minutes=bucket_size_minutes),
+                    service=service,
+                    value=value,
+                    scope="service",
+                )
+            )
+        points.append(
+            SeriesPoint(
+                bucket_start=bucket_start,
+                bucket_end=bucket_start + timedelta(minutes=bucket_size_minutes),
+                service="global",
+                value=global_count,
+                scope="global",
+            )
+        )
+    return points
+
+
 def _extract_metric_value(event: TimelineEvent, *, metric_kind: str) -> float | None:
     metric_name = (event.metric_name or "").lower()
     message = (event.message or "").lower()
@@ -190,11 +280,9 @@ def _extract_metric_value(event: TimelineEvent, *, metric_kind: str) -> float | 
             return event.value
         return None
 
-    if metric_kind == "error_rate":
-        if "error_rate" in metric_name and event.value is not None:
+    if metric_kind == "http_error_rate":
+        if event.signal == "http_error_rate" and event.value is not None:
             return event.value
-        if event.source == "log" and event.severity in {"ERROR", "CRITICAL"}:
-            return 1.0
         return None
 
     if metric_kind == "traffic":

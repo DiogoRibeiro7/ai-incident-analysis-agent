@@ -20,7 +20,11 @@ Config model:
   - `latency_metrics`
   - `cpu_metrics`
   - `memory_metrics`
+  - `http_error_rate_metrics`
   - `service_failure_metrics`
+
+HTTP error-rate metrics and log severity counts stay in separate units. Error-rate metrics are
+aggregated as ratios, while ERROR and CRITICAL logs are counted separately.
 
 ## Unified timeline representation
 
@@ -34,8 +38,11 @@ Schema file: `src/incident_agent/schemas/timeline.py`
 
 For each bucket, the pipeline computes:
 - `error_count`
+- `error_log_count`
+- `critical_log_count`
 - `warn_count`
 - `unique_services_affected`
+- `http_error_rate`
 - `p95_latency`
 - `cpu_mean` / `cpu_max`
 - `memory_mean` / `memory_max`

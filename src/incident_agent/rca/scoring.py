@@ -27,7 +27,12 @@ def score_root_candidates(
         if service not in scores:
             continue
         score = anomaly.severity_score
-        if anomaly.anomaly_type in {"service_unavailability", "error_rate_spike"}:
+        if anomaly.anomaly_type in {
+            "service_unavailability",
+            "error_rate_spike",
+            "error_log_burst",
+            "critical_log_burst",
+        }:
             score += service_failure_bonus
         scores[service] += score
 

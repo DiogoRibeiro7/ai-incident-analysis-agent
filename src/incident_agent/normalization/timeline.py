@@ -31,8 +31,11 @@ class NormalizationConfig(BaseModel):
     memory_metrics: set[str] = Field(
         default_factory=lambda: {"memory_usage", "memory_usage_mb", "memory_used_mb"}
     )
+    http_error_rate_metrics: set[str] = Field(
+        default_factory=lambda: {"error_rate", "http_error_rate", "http_5xx_error_rate"}
+    )
     service_failure_metrics: set[str] = Field(
-        default_factory=lambda: {"error_rate", "upstream_failure_rate", "service_unavailable"}
+        default_factory=lambda: {"upstream_failure_rate", "service_unavailable"}
     )
 
     @field_validator("bucket_size_minutes")
@@ -74,6 +77,7 @@ def align_events_to_timeline(
                 source="log",
                 signal=_log_signal(log.severity),
                 severity=log.severity,
+                value=1.0 if log.severity in {"ERROR", "CRITICAL"} else None,
                 message=log.message,
             )
         )
@@ -130,20 +134,30 @@ def _bucket_floor(timestamp: datetime, bucket_size_minutes: int) -> datetime:
 
 
 def _log_signal(severity: str) -> TimelineSignal:
-    if severity in {"ERROR", "CRITICAL"}:
-        return "service_failure"
+    if severity == "ERROR":
+        return "error_log_count"
+    if severity == "CRITICAL":
+        return "critical_log_count"
     return "log"
 
 
 def _metric_signal(metric_name: str, config: NormalizationConfig) -> TimelineSignal:
     lowered = metric_name.lower()
-    if metric_name in config.latency_metrics or "latency" in lowered:
+    latency_metrics = {name.lower() for name in config.latency_metrics}
+    cpu_metrics = {name.lower() for name in config.cpu_metrics}
+    memory_metrics = {name.lower() for name in config.memory_metrics}
+    http_error_rate_metrics = {name.lower() for name in config.http_error_rate_metrics}
+    service_failure_metrics = {name.lower() for name in config.service_failure_metrics}
+
+    if lowered in latency_metrics or "latency" in lowered:
         return "latency"
-    if metric_name in config.cpu_metrics or "cpu" in lowered:
+    if lowered in cpu_metrics or "cpu" in lowered:
         return "cpu"
-    if metric_name in config.memory_metrics or "memory" in lowered:
+    if lowered in memory_metrics or "memory" in lowered:
         return "memory"
-    if metric_name in config.service_failure_metrics or "error_rate" in lowered:
+    if lowered in http_error_rate_metrics or "error_rate" in lowered:
+        return "http_error_rate"
+    if lowered in service_failure_metrics:
         return "service_failure"
     return "metric_other"
 
@@ -155,13 +169,16 @@ def _summarize_bucket(
 ) -> TimelineBucketFeatures:
     bucket_end = bucket_start + timedelta(minutes=config.bucket_size_minutes)
     log_events = [event for event in events if event.source == "log"]
-    error_count = sum(1 for event in log_events if event.severity in {"ERROR", "CRITICAL"})
+    error_log_count = sum(1 for event in log_events if event.signal == "error_log_count")
+    critical_log_count = sum(1 for event in log_events if event.signal == "critical_log_count")
+    error_count = error_log_count + critical_log_count
     warn_count = sum(1 for event in log_events if event.severity == "WARN")
     service_failure_signals = sum(1 for event in events if event.signal == "service_failure")
 
     latency_values = _metric_values(events, signal="latency")
     cpu_values = _metric_values(events, signal="cpu")
     memory_values = _metric_values(events, signal="memory")
+    http_error_rate_values = _metric_values(events, signal="http_error_rate")
 
     return TimelineBucketFeatures(
         bucket_start=bucket_start,
@@ -169,11 +186,14 @@ def _summarize_bucket(
         event_count=len(events),
         log_count=len(log_events),
         error_count=error_count,
+        error_log_count=error_log_count,
+        critical_log_count=critical_log_count,
         warn_count=warn_count,
         unique_services_affected=len({event.service for event in events}),
         log_spike=len(log_events) >= config.log_spike_threshold,
         error_burst=error_count >= config.error_burst_threshold,
         service_failure_signals=service_failure_signals,
+        http_error_rate=mean(http_error_rate_values) if http_error_rate_values else None,
         p95_latency=_percentile(latency_values, percentile=95),
         cpu_mean=mean(cpu_values) if cpu_values else None,
         cpu_max=max(cpu_values) if cpu_values else None,

@@ -14,6 +14,8 @@ AnomalyType = Literal[
     "memory_anomaly",
     "traffic_drop",
     "service_unavailability",
+    "error_log_burst",
+    "critical_log_burst",
 ]
 
 

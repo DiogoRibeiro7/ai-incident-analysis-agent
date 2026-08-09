@@ -62,8 +62,11 @@ normalization:
     - memory_usage
     - memory_usage_mb
     - memory_used_mb
-  service_failure_metrics:
+  http_error_rate_metrics:
     - error_rate
+    - http_error_rate
+    - http_5xx_error_rate
+  service_failure_metrics:
     - upstream_failure_rate
     - service_unavailable
 anomaly_detection:
@@ -103,6 +106,18 @@ anomaly_detection:
     z_threshold: 2.0
     mad_multiplier: 2.0
     min_relative_change: 0.1
+  error_logs:
+    min_support: 3
+    lookback_windows: 20
+    z_threshold: 2.5
+    mad_multiplier: 2.5
+    min_relative_change: 0.2
+  critical_logs:
+    min_support: 3
+    lookback_windows: 20
+    z_threshold: 2.5
+    mad_multiplier: 2.5
+    min_relative_change: 0.2
 correlation:
   max_time_distance_minutes: 10
   minimum_evidence_count: 2
@@ -113,6 +128,8 @@ correlation:
     memory_anomaly: 0.9
     traffic_drop: 1.0
     service_unavailability: 1.2
+    error_log_burst: 1.0
+    critical_log_burst: 1.2
   dependency_downstream_bonus: 1.0
   dependency_upstream_penalty: 0.5
   cross_signal_bonus: 0.3

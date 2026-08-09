@@ -17,6 +17,9 @@ Main package: `src/incident_agent/anomaly_detection/`
 - `availability.py`
 - `engine.py`: orchestration and config loading
 
+HTTP error-rate metrics are detected from the `http_error_rate` signal only. ERROR and
+CRITICAL logs are zero-filled as count series and detected separately as log-burst evidence.
+
 ## Detection approach
 
 All detectors use:
@@ -53,6 +56,8 @@ Each anomaly includes:
 - `anomaly_detection.memory`
 - `anomaly_detection.traffic`
 - `anomaly_detection.availability`
+- `anomaly_detection.error_logs`
+- `anomaly_detection.critical_logs`
 
 Each detector config supports:
 - `min_support`
