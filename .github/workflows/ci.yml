@@ -57,6 +57,8 @@ jobs:
       - uses: DiogoRibeiro7/git-actions-collection/.github/actions/setup-poetry@v1
         with:
           python-version: "3.12"
+      - name: Install project entry point
+        run: poetry install --no-interaction
       - name: Run evaluation candidate
         run: poetry run incident-agent run-eval --benchmark-path eval/benchmarks/scenarios.json --artifact-root artifacts/eval-ci
       - name: Compare candidate vs golden baseline
