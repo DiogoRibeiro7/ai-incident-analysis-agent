@@ -13,14 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: DiogoRibeiro7/git-actions-collection/.github/actions/setup-poetry@v1
         with:
           python-version: "3.12"
-          cache: "pip"
-      - name: Install Poetry
-        run: pip install poetry
-      - name: Install dependencies
-        run: poetry install --no-interaction
       - name: Format check
         run: poetry run ruff format --check .
       - name: Lint
@@ -36,14 +31,9 @@ jobs:
     needs: quality
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: DiogoRibeiro7/git-actions-collection/.github/actions/setup-poetry@v1
         with:
           python-version: "3.12"
-          cache: "pip"
-      - name: Install Poetry
-        run: pip install poetry
-      - name: Install dependencies
-        run: poetry install --no-interaction
       - name: Run unit tests
         run: poetry run pytest --no-cov tests/unit
       - name: Run integration tests
@@ -64,13 +54,10 @@ jobs:
     needs: tests
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: DiogoRibeiro7/git-actions-collection/.github/actions/setup-poetry@v1
         with:
           python-version: "3.12"
-          cache: "pip"
-      - name: Install Poetry
-        run: pip install poetry
-      - name: Install dependencies
+      - name: Install project entry point
         run: poetry install --no-interaction
       - name: Run evaluation candidate
         run: poetry run incident-agent run-eval --benchmark-path eval/benchmarks/scenarios.json --artifact-root artifacts/eval-ci
