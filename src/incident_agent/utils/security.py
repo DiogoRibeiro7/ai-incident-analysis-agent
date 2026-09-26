@@ -115,10 +115,9 @@ def require_write_path(path: str | Path, *, config: SecurityConfig, workspace_ro
         basepath = os.path.realpath(root)
         prefix = basepath.rstrip(os.sep) + os.sep
         if fullpath == basepath:
+            return Path(basepath)
+        if fullpath.startswith(prefix):
             return Path(fullpath)
-        if not fullpath.startswith(prefix):
-            continue
-        return Path(fullpath)
     raise PathPolicyError(f"Write path not allowed by security policy: {path}")
 
 
@@ -142,10 +141,9 @@ def _validate_read_path(
         basepath = os.path.realpath(root)
         prefix = basepath.rstrip(os.sep) + os.sep
         if fullpath == basepath:
+            return Path(basepath)
+        if fullpath.startswith(prefix):
             return Path(fullpath)
-        if not fullpath.startswith(prefix):
-            continue
-        return Path(fullpath)
     raise PathPolicyError(f"Read path not allowed by security policy: {path}")
 
 
