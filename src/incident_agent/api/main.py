@@ -18,6 +18,7 @@ from incident_agent import __version__
 from incident_agent.agents.incident_agent import IncidentAnalysisAgent
 from incident_agent.api.store import AnalysisJobRecord, AnalysisJobStore
 from incident_agent.core.settings import (
+    SecurityConfig,
     load_observability_config,
     load_settings_from_yaml,
     load_webhook_export_config,
@@ -277,11 +278,14 @@ def inspect_config(
     """Inspect the YAML config used by local workflows."""
 
     path = Path(config_path)
-    if not path.exists():
-        raise HTTPException(status_code=400, detail=f"Config path does not exist: {config_path}")
-    security_config = load_security_config_safe(path)
     try:
-        validate_read_path(path, config=security_config, workspace_root=Path.cwd())
+        path = validate_read_path(path, config=SecurityConfig(), workspace_root=Path.cwd())
+        if not path.exists():
+            raise HTTPException(
+                status_code=400, detail=f"Config path does not exist: {config_path}"
+            )
+        security_config = load_security_config_safe(path)
+        path = validate_read_path(path, config=security_config, workspace_root=Path.cwd())
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     try:
@@ -316,32 +320,34 @@ def analyze_pipeline(request: PipelineAnalyzeRequest) -> PipelineRunResult:
     """Run full file-based pipeline and persist output artifacts."""
 
     try:
-        security_config = load_security_config_safe(request.config_path)
-        validate_read_path(
+        workspace_root = Path.cwd()
+        config_path = validate_read_path(
+            request.config_path, config=SecurityConfig(), workspace_root=workspace_root
+        )
+        security_config = load_security_config_safe(config_path)
+        logs_path = validate_read_path(
             request.logs_path,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
-        validate_read_path(
+        metrics_path = validate_read_path(
             request.metrics_path,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
-        validate_read_path(
-            request.config_path,
-            config=security_config,
-            workspace_root=Path.cwd(),
+        config_path = validate_read_path(
+            config_path, config=security_config, workspace_root=workspace_root
         )
-        validate_write_path(
+        artifact_root = validate_write_path(
             request.artifact_root,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
         return run_pipeline_from_files(
-            log_path=request.logs_path,
-            metric_path=request.metrics_path,
-            config_path=request.config_path,
-            artifact_root=request.artifact_root,
+            log_path=str(logs_path),
+            metric_path=str(metrics_path),
+            config_path=str(config_path),
+            artifact_root=str(artifact_root),
             bucket_size_minutes=request.bucket_size_minutes,
             retrieval_enabled=request.retrieval_enabled,
             knowledge_source_paths=request.knowledge_source_paths,
@@ -371,32 +377,34 @@ def submit_analysis_job(
 
     job = job_store.create_submitted_job()
     try:
-        security_config = load_security_config_safe(request.config_path)
-        validate_read_path(
+        workspace_root = Path.cwd()
+        config_path = validate_read_path(
+            request.config_path, config=SecurityConfig(), workspace_root=workspace_root
+        )
+        security_config = load_security_config_safe(config_path)
+        logs_path = validate_read_path(
             request.logs_path,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
-        validate_read_path(
+        metrics_path = validate_read_path(
             request.metrics_path,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
-        validate_read_path(
-            request.config_path,
-            config=security_config,
-            workspace_root=Path.cwd(),
+        config_path = validate_read_path(
+            config_path, config=security_config, workspace_root=workspace_root
         )
-        validate_write_path(
+        artifact_root = validate_write_path(
             request.artifact_root,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
         pipeline_result = run_pipeline_from_files(
-            log_path=request.logs_path,
-            metric_path=request.metrics_path,
-            config_path=request.config_path,
-            artifact_root=request.artifact_root,
+            log_path=str(logs_path),
+            metric_path=str(metrics_path),
+            config_path=str(config_path),
+            artifact_root=str(artifact_root),
             bucket_size_minutes=request.bucket_size_minutes,
             retrieval_enabled=request.retrieval_enabled,
             knowledge_source_paths=request.knowledge_source_paths,
@@ -505,25 +513,26 @@ def export_job_report_webhook(
             detail=f"Report not found for incident_id={incident_id}",
         )
     try:
-        settings = load_webhook_export_config(request.config_path)
-    except Exception as error:
-        raise HTTPException(status_code=400, detail=f"Invalid webhook config: {error}") from error
-    security_config = load_security_config_safe(request.config_path)
-    try:
-        validate_read_path(
-            request.config_path,
+        config_path = validate_read_path(
+            request.config_path, config=SecurityConfig(), workspace_root=Path.cwd()
+        )
+        security_config = load_security_config_safe(config_path)
+        config_path = validate_read_path(
+            config_path, config=security_config, workspace_root=Path.cwd()
+        )
+        settings = load_webhook_export_config(config_path)
+        audit_log_path = validate_write_path(
+            Path(job.artifact_dir or "artifacts/pipeline") / "exports" / "webhook_deliveries.jsonl",
             config=security_config,
             workspace_root=Path.cwd(),
         )
-    except ValueError as error:
+    except Exception as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     try:
         delivery = export_report_via_webhook(
             report=report,
             destination_url=request.destination_url,
-            audit_log_path=Path(job.artifact_dir or "artifacts/pipeline")
-            / "exports"
-            / "webhook_deliveries.jsonl",
+            audit_log_path=audit_log_path,
             config=WebhookExportConfig(
                 timeout_seconds=settings.timeout_seconds,
                 max_retries=settings.max_retries,

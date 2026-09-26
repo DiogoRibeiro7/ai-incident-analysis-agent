@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -64,6 +65,8 @@ def generate_benchmark_scenario(
 ) -> BenchmarkScenario:
     """Generate one synthetic benchmark scenario with logs, metrics, and metadata."""
 
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", scenario_id):
+        raise ValueError("Scenario ID must be one directory name using letters, digits, _, -, or .")
     scenario_dir = Path(output_root) / scenario_id
     ensure_directory(scenario_dir)
     timestamps = _timeline(config.start_time, config.duration_minutes, config.interval_minutes)

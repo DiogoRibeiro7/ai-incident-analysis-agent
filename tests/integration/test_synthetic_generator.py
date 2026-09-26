@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from incident_agent.cli import app
@@ -32,6 +33,20 @@ def test_generate_benchmark_scenario_writes_logs_metrics_and_metadata(tmp_path: 
     metadata = json.loads(Path(scenario.metadata_path or "").read_text(encoding="utf-8"))
     assert metadata["root_cause_service"] == "api-service"
     assert metadata["scenario_type"] == "resource_exhaustion"
+
+
+def test_scenario_id_cannot_escape_output_root(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Scenario ID"):
+        generate_benchmark_scenario(
+            scenario_id="../outside",
+            description="Invalid directory name.",
+            config=SyntheticScenarioGeneratorConfig(
+                scenario_type="error_burst", root_cause_service="api"
+            ),
+            output_root=tmp_path / "generated",
+        )
+
+    assert not (tmp_path / "outside").exists()
 
 
 def test_load_benchmark_scenarios_generates_synthetic_assets(tmp_path: Path) -> None:

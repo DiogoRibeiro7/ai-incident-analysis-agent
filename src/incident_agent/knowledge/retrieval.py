@@ -100,12 +100,11 @@ def _load_candidates(
 ) -> list[_SnippetCandidate]:
     candidates: list[_SnippetCandidate] = []
     for source_path in sorted(source_paths):
-        validate_retrieval_path(
+        base = validate_retrieval_path(
             source_path,
             config=security_config,
             workspace_root=workspace_root,
         )
-        base = Path(source_path)
         if base.is_file():
             candidates.extend(
                 _load_file_candidates(
@@ -133,11 +132,13 @@ def _load_file_candidates(
     security_config: SecurityConfig,
     workspace_root: Path,
 ) -> list[_SnippetCandidate]:
-    validate_retrieval_path(path, config=security_config, workspace_root=workspace_root)
+    validated_path = validate_retrieval_path(
+        path, config=security_config, workspace_root=workspace_root
+    )
     if path.suffix.lower() not in _TEXT_EXTENSIONS | _JSON_EXTENSIONS:
         return []
     try:
-        size = path.stat().st_size
+        size = validated_path.stat().st_size
     except OSError:
         return []
     if size > _MAX_FILE_BYTES:
@@ -145,9 +146,9 @@ def _load_file_candidates(
 
     try:
         if path.suffix.lower() in _JSON_EXTENSIONS:
-            chunks = _json_chunks(path)
+            chunks = _json_chunks(validated_path)
         else:
-            chunks = _text_chunks(path)
+            chunks = _text_chunks(validated_path)
     except (DataLoadingError, json.JSONDecodeError):
         return []
 

@@ -53,6 +53,13 @@ def test_config_inspection_rejects_malformed_yaml(tmp_path: Path) -> None:
     assert str(config) in response.json()["detail"]
 
 
+def test_config_inspection_rejects_paths_outside_allowed_roots() -> None:
+    response = _client().get("/config", params={"config_path": "/etc/passwd"})
+
+    assert response.status_code == 400
+    assert "not allowed by security policy" in response.json()["detail"]
+
+
 def test_analyze_pipeline_rejects_disallowed_paths() -> None:
     client = _client()
     response = client.post(

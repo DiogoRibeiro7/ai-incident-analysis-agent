@@ -56,10 +56,10 @@ def validate_outbound_url(
     return url
 
 
-def validate_read_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> None:
-    """Ensure read path is constrained to approved roots."""
+def validate_read_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
+    """Return the canonical read path after checking the approved roots."""
 
-    _validate_read_path(
+    return _validate_read_path(
         path,
         config=config,
         workspace_root=workspace_root,
@@ -72,10 +72,10 @@ def validate_retrieval_path(
     *,
     config: SecurityConfig,
     workspace_root: Path,
-) -> None:
-    """Ensure retrieval source paths are constrained to configured read roots."""
+) -> Path:
+    """Return a canonical retrieval path under the configured read roots."""
 
-    _validate_read_path(
+    return _validate_read_path(
         path,
         config=config,
         workspace_root=workspace_root,
@@ -83,12 +83,12 @@ def validate_retrieval_path(
     )
 
 
-def validate_write_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> None:
-    """Ensure write path is constrained to approved roots."""
+def validate_write_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
+    """Return the canonical write path after checking the approved roots."""
 
-    if not config.enabled:
-        return
     resolved = _resolve_under_workspace(path, workspace_root=workspace_root)
+    if not config.enabled:
+        return resolved
     allowed_roots = _resolve_allowed_roots(
         config.allowed_write_paths,
         workspace_root=workspace_root,
@@ -96,6 +96,7 @@ def validate_write_path(path: str | Path, *, config: SecurityConfig, workspace_r
     )
     if not any(_is_relative_to(resolved, root) for root in allowed_roots):
         raise PathPolicyError(f"Write path not allowed by security policy: {path}")
+    return resolved
 
 
 def _validate_read_path(
@@ -104,10 +105,10 @@ def _validate_read_path(
     config: SecurityConfig,
     workspace_root: Path,
     include_system_temp: bool,
-) -> None:
-    if not config.enabled:
-        return
+) -> Path:
     resolved = _resolve_under_workspace(path, workspace_root=workspace_root)
+    if not config.enabled:
+        return resolved
     allowed_roots = _resolve_allowed_roots(
         config.allowed_read_paths,
         workspace_root=workspace_root,
@@ -115,6 +116,7 @@ def _validate_read_path(
     )
     if not any(_is_relative_to(resolved, root) for root in allowed_roots):
         raise PathPolicyError(f"Read path not allowed by security policy: {path}")
+    return resolved
 
 
 def load_security_config_safe(config_path: str | Path) -> SecurityConfig:
