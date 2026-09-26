@@ -18,7 +18,6 @@ from incident_agent import __version__
 from incident_agent.agents.incident_agent import IncidentAnalysisAgent
 from incident_agent.api.store import AnalysisJobRecord, AnalysisJobStore
 from incident_agent.core.settings import (
-    SecurityConfig,
     load_observability_config,
     load_settings_from_yaml,
     load_webhook_export_config,
@@ -278,9 +277,8 @@ def inspect_config(
     """Inspect the YAML config used by local workflows."""
 
     try:
-        path = require_read_path(config_path, config=SecurityConfig(), workspace_root=Path.cwd())
-        security_config = load_security_config_safe(path)
-        path = require_read_path(path, config=security_config, workspace_root=Path.cwd())
+        security_config = load_security_config_safe("configs/default.yaml")
+        path = require_read_path(config_path, config=security_config, workspace_root=Path.cwd())
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     try:
@@ -320,10 +318,10 @@ def analyze_pipeline(request: PipelineAnalyzeRequest) -> PipelineRunResult:
 
     try:
         workspace_root = Path.cwd()
+        security_config = load_security_config_safe("configs/default.yaml")
         config_path = require_read_path(
-            request.config_path, config=SecurityConfig(), workspace_root=workspace_root
+            request.config_path, config=security_config, workspace_root=workspace_root
         )
-        security_config = load_security_config_safe(config_path)
         logs_path = require_read_path(
             request.logs_path,
             config=security_config,
@@ -333,9 +331,6 @@ def analyze_pipeline(request: PipelineAnalyzeRequest) -> PipelineRunResult:
             request.metrics_path,
             config=security_config,
             workspace_root=workspace_root,
-        )
-        config_path = require_read_path(
-            config_path, config=security_config, workspace_root=workspace_root
         )
         artifact_root = require_write_path(
             request.artifact_root,
@@ -377,10 +372,10 @@ def submit_analysis_job(
     job = job_store.create_submitted_job()
     try:
         workspace_root = Path.cwd()
+        security_config = load_security_config_safe("configs/default.yaml")
         config_path = require_read_path(
-            request.config_path, config=SecurityConfig(), workspace_root=workspace_root
+            request.config_path, config=security_config, workspace_root=workspace_root
         )
-        security_config = load_security_config_safe(config_path)
         logs_path = require_read_path(
             request.logs_path,
             config=security_config,
@@ -390,9 +385,6 @@ def submit_analysis_job(
             request.metrics_path,
             config=security_config,
             workspace_root=workspace_root,
-        )
-        config_path = require_read_path(
-            config_path, config=security_config, workspace_root=workspace_root
         )
         artifact_root = require_write_path(
             request.artifact_root,
@@ -512,12 +504,9 @@ def export_job_report_webhook(
             detail=f"Report not found for incident_id={incident_id}",
         )
     try:
+        security_config = load_security_config_safe("configs/default.yaml")
         config_path = require_read_path(
-            request.config_path, config=SecurityConfig(), workspace_root=Path.cwd()
-        )
-        security_config = load_security_config_safe(config_path)
-        config_path = require_read_path(
-            config_path, config=security_config, workspace_root=Path.cwd()
+            request.config_path, config=security_config, workspace_root=Path.cwd()
         )
         settings = load_webhook_export_config(config_path)
         audit_log_path = require_write_path(

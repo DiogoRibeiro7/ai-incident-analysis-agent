@@ -1,0 +1,11 @@
+# The strict helpers resolve symlinks and reject paths outside approved roots.
+# Keep these entries limited to helpers that enforce the check even when the
+# optional security policy is disabled. Do not model validate_read/write_path.
+extensions:
+  - addsTo:
+      pack: codeql/python-all
+      extensible: barrierModel
+    data:
+      - ["incident_agent.utils.security", "Member[require_read_path].ReturnValue", "path-injection"]
+      - ["incident_agent.utils.security", "Member[require_write_path].ReturnValue", "path-injection"]
+      - ["incident_agent.utils.security", "Member[validate_retrieval_path].ReturnValue", "path-injection"]

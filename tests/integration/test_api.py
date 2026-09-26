@@ -74,6 +74,35 @@ def test_analyze_pipeline_rejects_disallowed_paths() -> None:
     assert "not allowed by security policy" in response.json()["detail"]
 
 
+@pytest.mark.parametrize(
+    ("logs_path", "artifact_root", "rejected_access"),
+    [
+        ("/etc/passwd", "artifacts/pipeline", "Read"),
+        ("data/sample/incident/anomaly_logs.csv", "/etc/incident-agent-artifacts", "Write"),
+    ],
+)
+def test_request_config_cannot_expand_server_path_policy(
+    tmp_path: Path, logs_path: str, artifact_root: str, rejected_access: str
+) -> None:
+    config = tmp_path / "untrusted.yaml"
+    config.write_text(
+        "security:\n  allowed_read_paths: ['/']\n  allowed_write_paths: ['/']\n",
+        encoding="utf-8",
+    )
+    response = _client().post(
+        "/analyze-pipeline",
+        json={
+            "config_path": str(config),
+            "logs_path": logs_path,
+            "metrics_path": "data/sample/incident/anomaly_metrics.csv",
+            "artifact_root": artifact_root,
+        },
+    )
+
+    assert response.status_code == 400
+    assert f"{rejected_access} path not allowed by security policy" in response.json()["detail"]
+
+
 def test_analyze_pipeline_rejects_disallowed_retrieval_path(tmp_path: Path) -> None:
     client = _client()
     secret_path = tmp_path / "secret.md"
