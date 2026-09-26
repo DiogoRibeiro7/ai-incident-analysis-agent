@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -10,6 +9,7 @@ from time import perf_counter
 from typing import Annotated, Any
 from uuid import uuid4
 
+from dataexcept import DataLoadingError
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -35,6 +35,7 @@ from incident_agent.schemas.incident import CorrelatedIncidentCandidate
 from incident_agent.schemas.pipeline import PipelineRunResult
 from incident_agent.schemas.report import IncidentReport
 from incident_agent.services.pipeline import run_pipeline_from_files
+from incident_agent.utils.file_io import read_json
 from incident_agent.utils.observability import (
     bind_context,
     configure_logging,
@@ -283,7 +284,10 @@ def inspect_config(
         validate_read_path(path, config=security_config, workspace_root=Path.cwd())
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    loaded = load_settings_from_yaml(path)
+    try:
+        loaded = load_settings_from_yaml(path)
+    except DataLoadingError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     return ConfigInspectionResponse(
         config_path=config_path,
         config=loaded,
@@ -606,7 +610,7 @@ def _load_incidents(artifact_dir: str) -> list[CorrelatedIncidentCandidate]:
     path = Path(artifact_dir) / "incidents" / "incidents.json"
     if not path.exists():
         return []
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = read_json(path)
     rows = payload.get("incidents", [])
     if not isinstance(rows, list):
         return []
@@ -617,7 +621,7 @@ def _load_anomalies(artifact_dir: str) -> list[AnomalyCandidate]:
     path = Path(artifact_dir) / "anomalies" / "anomalies.json"
     if not path.exists():
         return []
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = read_json(path)
     rows = payload.get("anomalies", [])
     if not isinstance(rows, list):
         return []

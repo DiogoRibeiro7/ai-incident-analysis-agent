@@ -39,6 +39,7 @@ from incident_agent.services.normalize import normalize_from_files
 from incident_agent.services.pipeline import run_pipeline_from_files
 from incident_agent.services.rca import run_rca_from_files
 from incident_agent.synthetic.generator import generate_benchmark_scenario
+from incident_agent.utils.file_io import ensure_directory, open_output, read_json, write_text
 from incident_agent.utils.observability import configure_logging
 from incident_agent.utils.security import (
     config_security_warnings,
@@ -116,7 +117,7 @@ def ingest_data(
     logs_result = ingest_logs(logs)
     metrics_result = ingest_metrics(metrics)
     target = Path(output_dir)
-    target.mkdir(parents=True, exist_ok=True)
+    ensure_directory(target)
 
     _write_jsonl(
         target / "normalized_logs.jsonl",
@@ -130,10 +131,7 @@ def ingest_data(
         "logs": logs_result.report.model_dump(mode="json"),
         "metrics": metrics_result.report.model_dump(mode="json"),
     }
-    (target / "ingestion_report.json").write_text(
-        json.dumps(quality_payload, indent=2),
-        encoding="utf-8",
-    )
+    write_text(target / "ingestion_report.json", json.dumps(quality_payload, indent=2))
     console.print(f"Wrote normalized ingestion artifacts to {target}")
 
 
@@ -448,7 +446,6 @@ def export_report(
     )
 
     target = Path(output_path)
-    target.parent.mkdir(parents=True, exist_ok=True)
     suffix = target.suffix.lower()
     format_map = {
         ".json": "json",
@@ -458,12 +455,12 @@ def export_report(
     output_format = format_map.get(suffix)
     if output_format is None:
         raise typer.BadParameter("output-path must end with .json, .md, or .html")
-    target.write_text(
+    write_text(
+        target,
         serialize_report(
             report,
             output_format=cast(ExportFormat, output_format),
         ),
-        encoding="utf-8",
     )
     console.print(f"Exported report to {target}")
 
@@ -775,7 +772,7 @@ def run_demo_command(
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
-    with path.open("w", encoding="utf-8") as handle:
+    with open_output(path) as handle:
         for row in rows:
             handle.write(json.dumps(row))
             handle.write("\n")
@@ -806,7 +803,7 @@ def _resolve_run_directory(
 def _read_json(path: Path) -> dict[str, object]:
     if not path.exists():
         raise typer.BadParameter(f"Artifact file not found: {path}")
-    loaded = json.loads(path.read_text(encoding="utf-8"))
+    loaded = read_json(path)
     if not isinstance(loaded, dict):
         raise typer.BadParameter(f"Artifact JSON root must be object: {path}")
     return loaded
@@ -815,7 +812,7 @@ def _read_json(path: Path) -> dict[str, object]:
 def _load_reports(path: Path) -> list[dict[str, object]]:
     if not path.exists():
         raise typer.BadParameter(f"Report file not found: {path}")
-    loaded = json.loads(path.read_text(encoding="utf-8"))
+    loaded = read_json(path)
     if not isinstance(loaded, list):
         raise typer.BadParameter(f"Report file must contain a JSON list: {path}")
     reports = [row for row in loaded if isinstance(row, dict)]
@@ -895,9 +892,8 @@ def _transition_report_from_artifacts(
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error
 
-    reports_path.write_text(
-        json.dumps([report.model_dump(mode="json") for report in parsed], indent=2),
-        encoding="utf-8",
+    write_text(
+        reports_path, json.dumps([report.model_dump(mode="json") for report in parsed], indent=2)
     )
     return match
 

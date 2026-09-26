@@ -5,9 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal
 
-import yaml
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from incident_agent.utils.file_io import read_yaml
 
 
 class Settings(BaseSettings):
@@ -116,8 +117,7 @@ def load_settings_from_yaml(path: Path) -> dict[str, Any]:
         Path to a YAML configuration file.
     """
 
-    with path.open("r", encoding="utf-8") as handle:
-        loaded: dict[str, Any] = yaml.safe_load(handle) or {}
+    loaded: dict[str, Any] = read_yaml(path) or {}
     return loaded
 
 

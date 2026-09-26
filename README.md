@@ -307,6 +307,14 @@ See [evaluation.md](docs/evaluation.md) and
 
 ## Quality and Release Hygiene
 
+File-based ingestion, configuration, retrieval, cache, and artifact operations use
+`DataExcept` errors. A failed read raises `DataLoadingError` with the input
+`source` and `original` exception; a failed local write raises `FileWriteError`
+with the destination `path` and `original` exception. Malformed individual
+CSV/JSONL rows still appear in the ingestion quality report. When configured
+to allow missing inputs, the pipeline continues in degraded mode and records
+the failure in its run summary.
+
 Local quality gate:
 
 ```bash

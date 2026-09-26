@@ -43,6 +43,16 @@ def test_config_inspection_failure_for_missing_file() -> None:
     assert "does not exist" in response.json()["detail"]
 
 
+def test_config_inspection_rejects_malformed_yaml(tmp_path: Path) -> None:
+    config = tmp_path / "bad.yaml"
+    config.write_text("settings: [unclosed", encoding="utf-8")
+
+    response = _client().get("/config", params={"config_path": str(config)})
+
+    assert response.status_code == 400
+    assert str(config) in response.json()["detail"]
+
+
 def test_analyze_pipeline_rejects_disallowed_paths() -> None:
     client = _client()
     response = client.post(

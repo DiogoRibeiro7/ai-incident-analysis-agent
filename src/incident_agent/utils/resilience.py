@@ -7,6 +7,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from dataexcept import DataLoadingError, FileWriteError
+
+from incident_agent.utils.file_io import ensure_directory, read_json, write_text
+
 
 def stable_cache_key(*parts: object) -> str:
     """Return a stable hash for cacheable inputs."""
@@ -25,17 +29,20 @@ class JsonFileCache:
         path = self._root / f"{key}.json"
         if not path.exists():
             return None
-        loaded = json.loads(path.read_text(encoding="utf-8"))
+        loaded = read_json(path)
         if not isinstance(loaded, dict):
             return None
         return loaded
 
     def write(self, key: str, payload: dict[str, Any]) -> None:
-        self._root.mkdir(parents=True, exist_ok=True)
+        ensure_directory(self._root)
         path = self._root / f"{key}.json"
         temp_path = path.with_suffix(".json.tmp")
-        temp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        temp_path.replace(path)
+        write_text(temp_path, json.dumps(payload, indent=2))
+        try:
+            temp_path.replace(path)
+        except OSError as exc:
+            raise FileWriteError(str(path), exc) from exc
 
 
 def file_fingerprint(path: str | Path) -> dict[str, object]:
@@ -44,7 +51,10 @@ def file_fingerprint(path: str | Path) -> dict[str, object]:
     candidate = Path(path)
     if not candidate.exists():
         return {"path": str(candidate), "exists": False}
-    stat = candidate.stat()
+    try:
+        stat = candidate.stat()
+    except OSError as exc:
+        raise DataLoadingError(str(candidate), exc) from exc
     return {
         "path": str(candidate),
         "exists": True,

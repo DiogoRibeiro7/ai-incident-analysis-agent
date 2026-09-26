@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
+from dataexcept import DataLoadingError
+
 from incident_agent.anomaly_detection.engine import (
     detect_anomalies,
     load_anomaly_detection_config,
@@ -61,6 +63,7 @@ from incident_agent.schemas.pipeline import (
 from incident_agent.schemas.rca import RCAResult
 from incident_agent.schemas.timeline import TimelineAlignmentResult
 from incident_agent.storage.backends import mirror_artifacts_to_backend
+from incident_agent.utils.file_io import ensure_directory, write_text
 from incident_agent.utils.observability import (
     bind_context,
     configure_logging,
@@ -754,10 +757,15 @@ def _load_records_with_degradation(
         if dataset_name == "logs":
             return ingest_logs(path).records
         return ingest_metrics(path).records
-    except FileNotFoundError:
+    except DataLoadingError as error:
         if not allow_missing:
             raise
-        message = f"{dataset_name} input missing at {path}; continuing with available data."
+        if isinstance(error.original, FileNotFoundError):
+            message = f"{dataset_name} input missing at {path}; continuing with available data."
+        else:
+            message = (
+                f"{dataset_name} input invalid at {path}: {error}; continuing with available data."
+            )
     except ValueError as error:
         if not allow_missing:
             raise
@@ -893,15 +901,12 @@ def _persist_artifacts(
         grounding_dir,
         reports_dir,
     ]:
-        directory.mkdir(parents=True, exist_ok=True)
+        ensure_directory(directory)
 
-    (normalized_dir / "timeline.json").write_text(json.dumps(alignment, indent=2), encoding="utf-8")
-    (anomalies_dir / "anomalies.json").write_text(json.dumps(anomalies, indent=2), encoding="utf-8")
-    (incidents_dir / "incidents.json").write_text(json.dumps(incidents, indent=2), encoding="utf-8")
-    (rca_dir / "rca_hypotheses.json").write_text(json.dumps(rca, indent=2), encoding="utf-8")
-    (grounding_dir / "grounding_summary.json").write_text(
-        json.dumps(grounding, indent=2),
-        encoding="utf-8",
-    )
-    (reports_dir / "final_reports.json").write_text(json.dumps(reports, indent=2), encoding="utf-8")
-    (run_dir / "run_summary.json").write_text(json.dumps(run_summary, indent=2), encoding="utf-8")
+    write_text(normalized_dir / "timeline.json", json.dumps(alignment, indent=2))
+    write_text(anomalies_dir / "anomalies.json", json.dumps(anomalies, indent=2))
+    write_text(incidents_dir / "incidents.json", json.dumps(incidents, indent=2))
+    write_text(rca_dir / "rca_hypotheses.json", json.dumps(rca, indent=2))
+    write_text(grounding_dir / "grounding_summary.json", json.dumps(grounding, indent=2))
+    write_text(reports_dir / "final_reports.json", json.dumps(reports, indent=2))
+    write_text(run_dir / "run_summary.json", json.dumps(run_summary, indent=2))

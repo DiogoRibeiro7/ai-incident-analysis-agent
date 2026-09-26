@@ -30,6 +30,7 @@ from incident_agent.schemas.final_report import FinalIncidentReport
 from incident_agent.schemas.grounding import ClaimType, ClaimValidationStatus, GroundingSummary
 from incident_agent.services.pipeline import run_pipeline_from_files
 from incident_agent.services.rca import run_rca_from_files
+from incident_agent.utils.file_io import ensure_directory, read_json, write_text
 
 
 class ClaimGroundingMetricValues(NamedTuple):
@@ -80,7 +81,7 @@ def run_evaluation(
     scenarios = load_benchmark_scenarios(benchmark_path)
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     run_dir = Path(artifact_root) / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
+    ensure_directory(run_dir)
 
     modes = evaluation_modes(include_real_llm=include_real_llm)
 
@@ -433,7 +434,7 @@ def _write_config_with_provider(*, config_path: str, provider: str, target: Path
         llm_section = {}
     llm_section["provider"] = provider
     loaded["llm"] = llm_section
-    target.write_text(yaml.safe_dump(loaded, sort_keys=False), encoding="utf-8")
+    write_text(target, yaml.safe_dump(loaded, sort_keys=False))
     return target
 
 
@@ -879,16 +880,16 @@ def _summarize_records(records: list[EvaluationRunRecord]) -> list[EvaluationSum
 
 
 def _write_artifacts(*, run_dir: Path, result: EvaluationResult) -> None:
-    (run_dir / "records.json").write_text(
+    write_text(
+        run_dir / "records.json",
         json.dumps([record.model_dump(mode="json") for record in result.records], indent=2),
-        encoding="utf-8",
     )
-    (run_dir / "summary.json").write_text(
+    write_text(
+        run_dir / "summary.json",
         json.dumps([summary.model_dump(mode="json") for summary in result.summaries], indent=2),
-        encoding="utf-8",
     )
     markdown = _summary_markdown(result)
-    (run_dir / "summary.md").write_text(markdown, encoding="utf-8")
+    write_text(run_dir / "summary.md", markdown)
 
 
 def _summary_markdown(result: EvaluationResult) -> str:
@@ -1000,19 +1001,13 @@ def write_comparison_artifacts(
     """Persist machine-readable and markdown comparison artifacts."""
 
     target = Path(output_dir)
-    target.mkdir(parents=True, exist_ok=True)
-    (target / "eval_comparison.json").write_text(
-        comparison.model_dump_json(indent=2),
-        encoding="utf-8",
-    )
-    (target / "eval_comparison.md").write_text(
-        _comparison_markdown(comparison),
-        encoding="utf-8",
-    )
+    ensure_directory(target)
+    write_text(target / "eval_comparison.json", comparison.model_dump_json(indent=2))
+    write_text(target / "eval_comparison.md", _comparison_markdown(comparison))
 
 
 def _load_summary_rows(path: str) -> list[EvaluationSummary]:
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    payload = read_json(path)
     if not isinstance(payload, list):
         raise ValueError(f"Evaluation summary must be a list: {path}")
     return [EvaluationSummary.model_validate(item) for item in payload]

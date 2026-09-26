@@ -6,10 +6,12 @@ import json
 import re
 from pathlib import Path
 
+from dataexcept import DataLoadingError
 from pydantic import BaseModel
 
 from incident_agent.core.settings import KnowledgeConfig, SecurityConfig
 from incident_agent.schemas.rca import EvidenceBundle, IncidentSummaryFeatures, RootCauseHypothesis
+from incident_agent.utils.file_io import read_text
 from incident_agent.utils.security import validate_retrieval_path
 
 _TEXT_EXTENSIONS = {".md", ".txt", ".log"}
@@ -146,7 +148,7 @@ def _load_file_candidates(
             chunks = _json_chunks(path)
         else:
             chunks = _text_chunks(path)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+    except (DataLoadingError, json.JSONDecodeError):
         return []
 
     candidates: list[_SnippetCandidate] = []
@@ -165,7 +167,7 @@ def _load_file_candidates(
 
 
 def _text_chunks(path: Path) -> list[str]:
-    text = path.read_text(encoding="utf-8")
+    text = read_text(path)
     if path.suffix.lower() == ".md":
         return _markdown_section_chunks(text)
     chunks = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
@@ -207,7 +209,7 @@ def _json_chunks(path: Path) -> list[str]:
     suffix = path.suffix.lower()
     if suffix == ".jsonl":
         rows = []
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in read_text(path).splitlines():
             stripped = line.strip()
             if not stripped:
                 continue
@@ -223,7 +225,7 @@ def _json_chunks(path: Path) -> list[str]:
             rows.append(json.dumps(parsed, sort_keys=True))
         return rows
 
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(read_text(path))
     grafana_chunks = _grafana_annotation_chunks(payload)
     if grafana_chunks:
         return grafana_chunks

@@ -15,6 +15,7 @@ from incident_agent.ingestion.common import (
     parse_timestamp_to_utc,
 )
 from incident_agent.schemas.events import MetricPoint
+from incident_agent.utils.file_io import open_input
 
 
 def ingest_metrics(path: str | Path) -> IngestionResult[MetricPoint]:
@@ -52,14 +53,14 @@ def _iter_metric_payloads(
     path: Path, data_format: IngestionFormat
 ) -> Iterator[tuple[int, dict[str, object]]]:
     if data_format is IngestionFormat.CSV:
-        with path.open("r", encoding="utf-8", newline="") as handle:
+        with open_input(path, newline="") as handle:
             reader = csv.DictReader(handle)
             for row_number, row in enumerate(reader, start=2):
                 yield row_number, {str(key): value for key, value in row.items() if key is not None}
         return
 
     if data_format is IngestionFormat.JSONL:
-        with path.open("r", encoding="utf-8") as handle:
+        with open_input(path) as handle:
             for line_number, raw_line in enumerate(handle, start=1):
                 line = raw_line.strip()
                 if not line:
@@ -75,7 +76,7 @@ def _iter_metric_payloads(
                 yield line_number, payload
         return
 
-    with path.open("r", encoding="utf-8") as handle:
+    with open_input(path) as handle:
         try:
             payload = json.load(handle)
         except json.JSONDecodeError as error:
