@@ -94,9 +94,11 @@ def validate_write_path(path: str | Path, *, config: SecurityConfig, workspace_r
         workspace_root=workspace_root,
         include_system_temp=True,
     )
-    if not any(_is_relative_to(resolved, root) for root in allowed_roots):
-        raise PathPolicyError(f"Write path not allowed by security policy: {path}")
-    return resolved
+    for root in allowed_roots:
+        prefix = str(root).rstrip(os.sep) + os.sep
+        if resolved == root or str(resolved).startswith(prefix):
+            return resolved
+    raise PathPolicyError(f"Write path not allowed by security policy: {path}")
 
 
 def _validate_read_path(
@@ -114,9 +116,11 @@ def _validate_read_path(
         workspace_root=workspace_root,
         include_system_temp=include_system_temp,
     )
-    if not any(_is_relative_to(resolved, root) for root in allowed_roots):
-        raise PathPolicyError(f"Read path not allowed by security policy: {path}")
-    return resolved
+    for root in allowed_roots:
+        prefix = str(root).rstrip(os.sep) + os.sep
+        if resolved == root or str(resolved).startswith(prefix):
+            return resolved
+    raise PathPolicyError(f"Read path not allowed by security policy: {path}")
 
 
 def load_security_config_safe(config_path: str | Path) -> SecurityConfig:
@@ -221,11 +225,3 @@ def _resolve_allowed_roots(
     if include_system_temp:
         roots.append(Path(tempfile.gettempdir()).resolve(strict=False))
     return roots
-
-
-def _is_relative_to(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-        return True
-    except ValueError:
-        return False

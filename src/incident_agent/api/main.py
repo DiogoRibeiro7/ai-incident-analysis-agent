@@ -277,13 +277,8 @@ def inspect_config(
 ) -> ConfigInspectionResponse:
     """Inspect the YAML config used by local workflows."""
 
-    path = Path(config_path)
     try:
-        path = validate_read_path(path, config=SecurityConfig(), workspace_root=Path.cwd())
-        if not path.exists():
-            raise HTTPException(
-                status_code=400, detail=f"Config path does not exist: {config_path}"
-            )
+        path = validate_read_path(config_path, config=SecurityConfig(), workspace_root=Path.cwd())
         security_config = load_security_config_safe(path)
         path = validate_read_path(path, config=security_config, workspace_root=Path.cwd())
     except ValueError as error:
@@ -291,6 +286,10 @@ def inspect_config(
     try:
         loaded = load_settings_from_yaml(path)
     except DataLoadingError as error:
+        if isinstance(error.original, FileNotFoundError):
+            raise HTTPException(
+                status_code=400, detail=f"Config path does not exist: {config_path}"
+            ) from error
         raise HTTPException(status_code=400, detail=str(error)) from error
     return ConfigInspectionResponse(
         config_path=config_path,
