@@ -46,8 +46,8 @@ from incident_agent.utils.observability import (
 from incident_agent.utils.security import (
     config_security_warnings,
     load_security_config_safe,
-    validate_read_path,
-    validate_write_path,
+    require_read_path,
+    require_write_path,
 )
 
 app = FastAPI(
@@ -278,9 +278,9 @@ def inspect_config(
     """Inspect the YAML config used by local workflows."""
 
     try:
-        path = validate_read_path(config_path, config=SecurityConfig(), workspace_root=Path.cwd())
+        path = require_read_path(config_path, config=SecurityConfig(), workspace_root=Path.cwd())
         security_config = load_security_config_safe(path)
-        path = validate_read_path(path, config=security_config, workspace_root=Path.cwd())
+        path = require_read_path(path, config=security_config, workspace_root=Path.cwd())
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     try:
@@ -320,24 +320,24 @@ def analyze_pipeline(request: PipelineAnalyzeRequest) -> PipelineRunResult:
 
     try:
         workspace_root = Path.cwd()
-        config_path = validate_read_path(
+        config_path = require_read_path(
             request.config_path, config=SecurityConfig(), workspace_root=workspace_root
         )
         security_config = load_security_config_safe(config_path)
-        logs_path = validate_read_path(
+        logs_path = require_read_path(
             request.logs_path,
             config=security_config,
             workspace_root=workspace_root,
         )
-        metrics_path = validate_read_path(
+        metrics_path = require_read_path(
             request.metrics_path,
             config=security_config,
             workspace_root=workspace_root,
         )
-        config_path = validate_read_path(
+        config_path = require_read_path(
             config_path, config=security_config, workspace_root=workspace_root
         )
-        artifact_root = validate_write_path(
+        artifact_root = require_write_path(
             request.artifact_root,
             config=security_config,
             workspace_root=workspace_root,
@@ -377,24 +377,24 @@ def submit_analysis_job(
     job = job_store.create_submitted_job()
     try:
         workspace_root = Path.cwd()
-        config_path = validate_read_path(
+        config_path = require_read_path(
             request.config_path, config=SecurityConfig(), workspace_root=workspace_root
         )
         security_config = load_security_config_safe(config_path)
-        logs_path = validate_read_path(
+        logs_path = require_read_path(
             request.logs_path,
             config=security_config,
             workspace_root=workspace_root,
         )
-        metrics_path = validate_read_path(
+        metrics_path = require_read_path(
             request.metrics_path,
             config=security_config,
             workspace_root=workspace_root,
         )
-        config_path = validate_read_path(
+        config_path = require_read_path(
             config_path, config=security_config, workspace_root=workspace_root
         )
-        artifact_root = validate_write_path(
+        artifact_root = require_write_path(
             request.artifact_root,
             config=security_config,
             workspace_root=workspace_root,
@@ -512,15 +512,15 @@ def export_job_report_webhook(
             detail=f"Report not found for incident_id={incident_id}",
         )
     try:
-        config_path = validate_read_path(
+        config_path = require_read_path(
             request.config_path, config=SecurityConfig(), workspace_root=Path.cwd()
         )
         security_config = load_security_config_safe(config_path)
-        config_path = validate_read_path(
+        config_path = require_read_path(
             config_path, config=security_config, workspace_root=Path.cwd()
         )
         settings = load_webhook_export_config(config_path)
-        audit_log_path = validate_write_path(
+        audit_log_path = require_write_path(
             Path(job.artifact_dir or "artifacts/pipeline") / "exports" / "webhook_deliveries.jsonl",
             config=security_config,
             workspace_root=Path.cwd(),

@@ -44,8 +44,8 @@ from incident_agent.utils.observability import configure_logging
 from incident_agent.utils.security import (
     config_security_warnings,
     load_security_config_safe,
-    validate_read_path,
-    validate_write_path,
+    require_read_path,
+    require_write_path,
 )
 from incident_agent.workflow.review import transition_report_review
 
@@ -911,7 +911,7 @@ def _enforce_read_paths(*paths: str) -> tuple[str, ...]:
     workspace_root = Path.cwd()
     policy = load_security_config_safe("configs/default.yaml")
     return tuple(
-        str(validate_read_path(value, config=policy, workspace_root=workspace_root))
+        str(require_read_path(value, config=policy, workspace_root=workspace_root))
         for value in paths
     )
 
@@ -919,7 +919,7 @@ def _enforce_read_paths(*paths: str) -> tuple[str, ...]:
 def _enforce_write_path(path: str) -> str:
     workspace_root = Path.cwd()
     policy = load_security_config_safe("configs/default.yaml")
-    return str(validate_write_path(path, config=policy, workspace_root=workspace_root))
+    return str(require_write_path(path, config=policy, workspace_root=workspace_root))
 
 
 if __name__ == "__main__":

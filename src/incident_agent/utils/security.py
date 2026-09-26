@@ -59,6 +59,14 @@ def validate_outbound_url(
 def validate_read_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
     """Return the canonical read path after checking the approved roots."""
 
+    if not config.enabled:
+        return _resolve_under_workspace(path, workspace_root=workspace_root)
+    return require_read_path(path, config=config, workspace_root=workspace_root)
+
+
+def require_read_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
+    """Validate untrusted input even if a config disables optional policy checks."""
+
     return _validate_read_path(
         path,
         config=config,
@@ -86,9 +94,15 @@ def validate_retrieval_path(
 def validate_write_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
     """Return the canonical write path after checking the approved roots."""
 
-    resolved = _resolve_under_workspace(path, workspace_root=workspace_root)
     if not config.enabled:
-        return resolved
+        return _resolve_under_workspace(path, workspace_root=workspace_root)
+    return require_write_path(path, config=config, workspace_root=workspace_root)
+
+
+def require_write_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
+    """Validate untrusted output even if a config disables optional policy checks."""
+
+    resolved = _resolve_under_workspace(path, workspace_root=workspace_root)
     allowed_roots = _resolve_allowed_roots(
         config.allowed_write_paths,
         workspace_root=workspace_root,
@@ -109,8 +123,6 @@ def _validate_read_path(
     include_system_temp: bool,
 ) -> Path:
     resolved = _resolve_under_workspace(path, workspace_root=workspace_root)
-    if not config.enabled:
-        return resolved
     allowed_roots = _resolve_allowed_roots(
         config.allowed_read_paths,
         workspace_root=workspace_root,
