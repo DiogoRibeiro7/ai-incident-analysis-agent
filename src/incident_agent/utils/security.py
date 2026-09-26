@@ -102,16 +102,17 @@ def validate_write_path(path: str | Path, *, config: SecurityConfig, workspace_r
 def require_write_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
     """Validate untrusted output even if a config disables optional policy checks."""
 
-    resolved = _resolve_under_workspace(path, workspace_root=workspace_root)
+    fullpath = _normalized_path(path, workspace_root=workspace_root)
     allowed_roots = _resolve_allowed_roots(
         config.allowed_write_paths,
         workspace_root=workspace_root,
         include_system_temp=True,
     )
     for root in allowed_roots:
-        prefix = str(root).rstrip(os.sep) + os.sep
-        if resolved == root or str(resolved).startswith(prefix):
-            return resolved
+        basepath = os.path.realpath(root)
+        prefix = basepath.rstrip(os.sep) + os.sep
+        if fullpath == basepath or fullpath.startswith(prefix):
+            return Path(fullpath)
     raise PathPolicyError(f"Write path not allowed by security policy: {path}")
 
 
@@ -122,16 +123,17 @@ def _validate_read_path(
     workspace_root: Path,
     include_system_temp: bool,
 ) -> Path:
-    resolved = _resolve_under_workspace(path, workspace_root=workspace_root)
+    fullpath = _normalized_path(path, workspace_root=workspace_root)
     allowed_roots = _resolve_allowed_roots(
         config.allowed_read_paths,
         workspace_root=workspace_root,
         include_system_temp=include_system_temp,
     )
     for root in allowed_roots:
-        prefix = str(root).rstrip(os.sep) + os.sep
-        if resolved == root or str(resolved).startswith(prefix):
-            return resolved
+        basepath = os.path.realpath(root)
+        prefix = basepath.rstrip(os.sep) + os.sep
+        if fullpath == basepath or fullpath.startswith(prefix):
+            return Path(fullpath)
     raise PathPolicyError(f"Read path not allowed by security policy: {path}")
 
 
@@ -174,10 +176,16 @@ def _walk_for_plaintext_secrets(node: object, *, prefix: str, warnings: list[str
 
 
 def _resolve_under_workspace(path: str | Path, *, workspace_root: Path) -> Path:
+    return Path(_normalized_path(path, workspace_root=workspace_root))
+
+
+def _normalized_path(path: str | Path, *, workspace_root: Path) -> str:
+    """Normalize a path and resolve symlinks before checking its allowed root."""
+
     candidate = Path(path)
     if not candidate.is_absolute():
         candidate = workspace_root / candidate
-    return Path(os.path.realpath(candidate))
+    return os.path.realpath(candidate)
 
 
 def _host_allowed(host: str, allowed_hosts: list[str]) -> bool:
