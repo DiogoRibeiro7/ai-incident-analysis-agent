@@ -12,6 +12,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from incident_agent.schemas.final_report import FinalIncidentReport
+from incident_agent.utils.file_io import open_output
 from incident_agent.utils.security import OutboundUrlPolicyError, validate_outbound_url
 
 
@@ -155,7 +156,6 @@ def _hostname_for_allowed_url(url: str) -> str:
 
 
 def _append_delivery_audit(*, path: Path, record: WebhookDeliveryRecord) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
+    with open_output(path, append=True) as handle:
         handle.write(json.dumps(record.model_dump(mode="json")))
         handle.write("\n")

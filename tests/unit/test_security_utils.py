@@ -7,6 +7,8 @@ import pytest
 from incident_agent.core.settings import SecurityConfig
 from incident_agent.utils.security import (
     config_security_warnings,
+    require_read_path,
+    require_write_path,
     validate_outbound_url,
     validate_read_path,
     validate_retrieval_path,
@@ -28,11 +30,38 @@ def test_validate_read_path_blocks_outside_allowlist() -> None:
 
 def test_validate_write_path_allows_artifacts_subdir() -> None:
     config = SecurityConfig(allowed_read_paths=["data"], allowed_write_paths=["artifacts"])
-    validate_write_path(
+    validated = validate_write_path(
         "artifacts/pipeline",
         config=config,
         workspace_root=Path.cwd(),
     )
+    assert validated == (Path.cwd() / "artifacts/pipeline").resolve()
+
+
+def test_validate_retrieval_path_rejects_symlink_outside_root(tmp_path: Path) -> None:
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (allowed / "link").symlink_to(outside, target_is_directory=True)
+    config = SecurityConfig(allowed_read_paths=[str(allowed)])
+
+    with pytest.raises(ValueError, match="Read path not allowed"):
+        validate_retrieval_path(
+            allowed / "link" / "secret.json", config=config, workspace_root=tmp_path
+        )
+
+
+def test_untrusted_paths_are_checked_when_optional_policy_is_disabled() -> None:
+    config = SecurityConfig(
+        enabled=False, allowed_read_paths=["data"], allowed_write_paths=["artifacts"]
+    )
+    outside = Path.cwd() / "not-an-approved-root" / "secret.json"
+
+    with pytest.raises(ValueError, match="Read path not allowed"):
+        require_read_path(outside, config=config, workspace_root=Path.cwd())
+    with pytest.raises(ValueError, match="Write path not allowed"):
+        require_write_path(outside, config=config, workspace_root=Path.cwd())
 
 
 def test_validate_retrieval_path_blocks_temp_path_outside_allowlist(tmp_path: Path) -> None:

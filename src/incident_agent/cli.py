@@ -39,12 +39,13 @@ from incident_agent.services.normalize import normalize_from_files
 from incident_agent.services.pipeline import run_pipeline_from_files
 from incident_agent.services.rca import run_rca_from_files
 from incident_agent.synthetic.generator import generate_benchmark_scenario
+from incident_agent.utils.file_io import ensure_directory, open_output, read_json, write_text
 from incident_agent.utils.observability import configure_logging
 from incident_agent.utils.security import (
     config_security_warnings,
     load_security_config_safe,
-    validate_read_path,
-    validate_write_path,
+    require_read_path,
+    require_write_path,
 )
 from incident_agent.workflow.review import transition_report_review
 
@@ -61,7 +62,7 @@ def analyze(
 ) -> None:
     """Analyze logs and metrics and print structured reports."""
 
-    _enforce_read_paths(logs, metrics, config)
+    logs, metrics, config = _enforce_read_paths(logs, metrics, config)
     reports = analyze_from_files(log_path=logs, metric_path=metrics, config_path=config)
     serialised = [report.model_dump(mode="json") for report in reports]
     console.print_json(json.dumps(serialised))
@@ -74,7 +75,7 @@ def validate_data(
 ) -> None:
     """Validate datasets and print quality metrics."""
 
-    _enforce_read_paths(logs, metrics)
+    logs, metrics = _enforce_read_paths(logs, metrics)
     logs_result = ingest_logs(logs)
     metrics_result = ingest_metrics(metrics)
 
@@ -111,12 +112,12 @@ def ingest_data(
 ) -> None:
     """Ingest datasets and persist normalized records plus quality reports."""
 
-    _enforce_read_paths(logs, metrics)
-    _enforce_write_path(output_dir)
+    logs, metrics = _enforce_read_paths(logs, metrics)
+    output_dir = _enforce_write_path(output_dir)
     logs_result = ingest_logs(logs)
     metrics_result = ingest_metrics(metrics)
     target = Path(output_dir)
-    target.mkdir(parents=True, exist_ok=True)
+    ensure_directory(target)
 
     _write_jsonl(
         target / "normalized_logs.jsonl",
@@ -130,10 +131,7 @@ def ingest_data(
         "logs": logs_result.report.model_dump(mode="json"),
         "metrics": metrics_result.report.model_dump(mode="json"),
     }
-    (target / "ingestion_report.json").write_text(
-        json.dumps(quality_payload, indent=2),
-        encoding="utf-8",
-    )
+    write_text(target / "ingestion_report.json", json.dumps(quality_payload, indent=2))
     console.print(f"Wrote normalized ingestion artifacts to {target}")
 
 
@@ -148,6 +146,7 @@ def normalize_timeline(
 ) -> None:
     """Normalize and align events to timeline buckets."""
 
+    logs, metrics, config = _enforce_read_paths(logs, metrics, config)
     alignment = normalize_from_files(
         log_path=logs,
         metric_path=metrics,
@@ -172,6 +171,7 @@ def detect_anomalies_command(
 ) -> None:
     """Run deterministic anomaly detectors and print candidates."""
 
+    logs, metrics, config = _enforce_read_paths(logs, metrics, config)
     result = detect_anomalies_from_files(
         log_path=logs,
         metric_path=metrics,
@@ -193,6 +193,7 @@ def correlate_incidents_command(
 ) -> None:
     """Correlate anomaly candidates into incident candidates."""
 
+    logs, metrics, config = _enforce_read_paths(logs, metrics, config)
     result = correlate_incidents_from_files(
         log_path=logs,
         metric_path=metrics,
@@ -214,6 +215,7 @@ def run_rca_command(
 ) -> None:
     """Run RCA on correlated incidents and print intermediate artifacts."""
 
+    logs, metrics, config = _enforce_read_paths(logs, metrics, config)
     result = run_rca_from_files(
         log_path=logs,
         metric_path=metrics,
@@ -274,8 +276,8 @@ def run_pipeline_command(
 ) -> None:
     """Run the full pipeline and persist artifacts."""
 
-    _enforce_read_paths(logs, metrics, config)
-    _enforce_write_path(artifact_root)
+    logs, metrics, config = _enforce_read_paths(logs, metrics, config)
+    artifact_root = _enforce_write_path(artifact_root)
     result = run_pipeline_from_files(
         log_path=logs,
         metric_path=metrics,
@@ -298,7 +300,7 @@ def print_config(
 ) -> None:
     """Print the loaded runtime configuration."""
 
-    _enforce_read_paths(config)
+    (config,) = _enforce_read_paths(config)
     loaded = load_settings_from_yaml(Path(config))
     payload = {"config": loaded, "security_warnings": config_security_warnings(config)}
     console.print_json(json.dumps(payload))
@@ -447,8 +449,7 @@ def export_report(
         _select_report(reports, incident_id=incident_id, index=index)
     )
 
-    target = Path(output_path)
-    target.parent.mkdir(parents=True, exist_ok=True)
+    target = Path(_enforce_write_path(output_path))
     suffix = target.suffix.lower()
     format_map = {
         ".json": "json",
@@ -458,12 +459,12 @@ def export_report(
     output_format = format_map.get(suffix)
     if output_format is None:
         raise typer.BadParameter("output-path must end with .json, .md, or .html")
-    target.write_text(
+    write_text(
+        target,
         serialize_report(
             report,
             output_format=cast(ExportFormat, output_format),
         ),
-        encoding="utf-8",
     )
     console.print(f"Exported report to {target}")
 
@@ -486,7 +487,7 @@ def export_approved_webhook(
 ) -> None:
     """Export one approved report to a generic webhook endpoint."""
 
-    _enforce_read_paths(config)
+    (config,) = _enforce_read_paths(config)
     run_dir = _resolve_run_directory(
         artifact_dir=artifact_dir,
         artifact_root=artifact_root,
@@ -510,7 +511,9 @@ def export_approved_webhook(
         record = export_report_via_webhook(
             report=report,
             destination_url=destination_url,
-            audit_log_path=run_dir / "exports" / "webhook_deliveries.jsonl",
+            audit_log_path=_enforce_write_path(
+                str(run_dir / "exports" / "webhook_deliveries.jsonl")
+            ),
             config=webhook_config,
         )
     except WebhookExportError as error:
@@ -624,8 +627,8 @@ def run_eval_command(
 ) -> None:
     """Run evaluation harness across benchmark scenarios."""
 
-    _enforce_read_paths(benchmark_path, config)
-    _enforce_write_path(artifact_root)
+    benchmark_path, config = _enforce_read_paths(benchmark_path, config)
+    artifact_root = _enforce_write_path(artifact_root)
     result = run_evaluation(
         benchmark_path=benchmark_path,
         config_path=config,
@@ -676,8 +679,10 @@ def compare_eval_command(
 ) -> None:
     """Compare baseline vs candidate eval summaries and fail on regressions."""
 
-    _enforce_read_paths(baseline_summary_path, candidate_summary_path)
-    _enforce_write_path(output_dir)
+    baseline_summary_path, candidate_summary_path = _enforce_read_paths(
+        baseline_summary_path, candidate_summary_path
+    )
+    output_dir = _enforce_write_path(output_dir)
     thresholds = EvaluationRegressionThresholds(
         root_cause_correctness_drop_max=root_cause_drop_max,
         impacted_service_correctness_drop_max=impacted_drop_max,
@@ -745,6 +750,7 @@ def generate_scenario_command(
         interval_minutes=interval_minutes,
         seed=seed,
     )
+    output_dir = _enforce_write_path(output_dir)
     scenario = generate_benchmark_scenario(
         scenario_id=scenario_id,
         description=f"Synthetic {scenario_type} scenario for {root_cause_service}.",
@@ -764,8 +770,8 @@ def run_demo_command(
 ) -> None:
     """Run the deterministic portfolio demo and write stable artifacts."""
 
-    _enforce_read_paths(config)
-    _enforce_write_path(output_dir)
+    (config,) = _enforce_read_paths(config)
+    output_dir = _enforce_write_path(output_dir)
     result = run_demo(
         output_root=output_dir,
         config_path=config,
@@ -775,7 +781,7 @@ def run_demo_command(
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
-    with path.open("w", encoding="utf-8") as handle:
+    with open_output(path) as handle:
         for row in rows:
             handle.write(json.dumps(row))
             handle.write("\n")
@@ -788,13 +794,13 @@ def _resolve_run_directory(
     latest: bool,
 ) -> Path:
     if artifact_dir:
-        path = Path(artifact_dir)
+        path = Path(_enforce_read_paths(artifact_dir)[0])
         if not path.exists():
             raise typer.BadParameter(f"Artifact directory not found: {artifact_dir}")
         return path
     if not latest:
         raise typer.BadParameter("Provide --artifact-dir or use --latest")
-    root = Path(artifact_root)
+    root = Path(_enforce_read_paths(artifact_root)[0])
     if not root.exists():
         raise typer.BadParameter(f"Artifact root not found: {artifact_root}")
     candidates = [item for item in root.iterdir() if item.is_dir()]
@@ -806,7 +812,7 @@ def _resolve_run_directory(
 def _read_json(path: Path) -> dict[str, object]:
     if not path.exists():
         raise typer.BadParameter(f"Artifact file not found: {path}")
-    loaded = json.loads(path.read_text(encoding="utf-8"))
+    loaded = read_json(path)
     if not isinstance(loaded, dict):
         raise typer.BadParameter(f"Artifact JSON root must be object: {path}")
     return loaded
@@ -815,7 +821,7 @@ def _read_json(path: Path) -> dict[str, object]:
 def _load_reports(path: Path) -> list[dict[str, object]]:
     if not path.exists():
         raise typer.BadParameter(f"Report file not found: {path}")
-    loaded = json.loads(path.read_text(encoding="utf-8"))
+    loaded = read_json(path)
     if not isinstance(loaded, list):
         raise typer.BadParameter(f"Report file must contain a JSON list: {path}")
     reports = [row for row in loaded if isinstance(row, dict)]
@@ -895,24 +901,25 @@ def _transition_report_from_artifacts(
     except ValueError as error:
         raise typer.BadParameter(str(error)) from error
 
-    reports_path.write_text(
-        json.dumps([report.model_dump(mode="json") for report in parsed], indent=2),
-        encoding="utf-8",
+    write_text(
+        reports_path, json.dumps([report.model_dump(mode="json") for report in parsed], indent=2)
     )
     return match
 
 
-def _enforce_read_paths(*paths: str) -> None:
+def _enforce_read_paths(*paths: str) -> tuple[str, ...]:
     workspace_root = Path.cwd()
     policy = load_security_config_safe("configs/default.yaml")
-    for value in paths:
-        validate_read_path(value, config=policy, workspace_root=workspace_root)
+    return tuple(
+        str(require_read_path(value, config=policy, workspace_root=workspace_root))
+        for value in paths
+    )
 
 
-def _enforce_write_path(path: str) -> None:
+def _enforce_write_path(path: str) -> str:
     workspace_root = Path.cwd()
     policy = load_security_config_safe("configs/default.yaml")
-    validate_write_path(path, config=policy, workspace_root=workspace_root)
+    return str(require_write_path(path, config=policy, workspace_root=workspace_root))
 
 
 if __name__ == "__main__":

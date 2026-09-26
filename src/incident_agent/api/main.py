@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -10,6 +9,7 @@ from time import perf_counter
 from typing import Annotated, Any
 from uuid import uuid4
 
+from dataexcept import DataLoadingError
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -35,6 +35,7 @@ from incident_agent.schemas.incident import CorrelatedIncidentCandidate
 from incident_agent.schemas.pipeline import PipelineRunResult
 from incident_agent.schemas.report import IncidentReport
 from incident_agent.services.pipeline import run_pipeline_from_files
+from incident_agent.utils.file_io import read_json
 from incident_agent.utils.observability import (
     bind_context,
     configure_logging,
@@ -44,8 +45,8 @@ from incident_agent.utils.observability import (
 from incident_agent.utils.security import (
     config_security_warnings,
     load_security_config_safe,
-    validate_read_path,
-    validate_write_path,
+    require_read_path,
+    require_write_path,
 )
 
 app = FastAPI(
@@ -275,15 +276,19 @@ def inspect_config(
 ) -> ConfigInspectionResponse:
     """Inspect the YAML config used by local workflows."""
 
-    path = Path(config_path)
-    if not path.exists():
-        raise HTTPException(status_code=400, detail=f"Config path does not exist: {config_path}")
-    security_config = load_security_config_safe(path)
     try:
-        validate_read_path(path, config=security_config, workspace_root=Path.cwd())
+        security_config = load_security_config_safe("configs/default.yaml")
+        path = require_read_path(config_path, config=security_config, workspace_root=Path.cwd())
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    loaded = load_settings_from_yaml(path)
+    try:
+        loaded = load_settings_from_yaml(path)
+    except DataLoadingError as error:
+        if isinstance(error.original, FileNotFoundError):
+            raise HTTPException(
+                status_code=400, detail=f"Config path does not exist: {config_path}"
+            ) from error
+        raise HTTPException(status_code=400, detail=str(error)) from error
     return ConfigInspectionResponse(
         config_path=config_path,
         config=loaded,
@@ -312,32 +317,31 @@ def analyze_pipeline(request: PipelineAnalyzeRequest) -> PipelineRunResult:
     """Run full file-based pipeline and persist output artifacts."""
 
     try:
-        security_config = load_security_config_safe(request.config_path)
-        validate_read_path(
+        workspace_root = Path.cwd()
+        security_config = load_security_config_safe("configs/default.yaml")
+        config_path = require_read_path(
+            request.config_path, config=security_config, workspace_root=workspace_root
+        )
+        logs_path = require_read_path(
             request.logs_path,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
-        validate_read_path(
+        metrics_path = require_read_path(
             request.metrics_path,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
-        validate_read_path(
-            request.config_path,
-            config=security_config,
-            workspace_root=Path.cwd(),
-        )
-        validate_write_path(
+        artifact_root = require_write_path(
             request.artifact_root,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
         return run_pipeline_from_files(
-            log_path=request.logs_path,
-            metric_path=request.metrics_path,
-            config_path=request.config_path,
-            artifact_root=request.artifact_root,
+            log_path=str(logs_path),
+            metric_path=str(metrics_path),
+            config_path=str(config_path),
+            artifact_root=str(artifact_root),
             bucket_size_minutes=request.bucket_size_minutes,
             retrieval_enabled=request.retrieval_enabled,
             knowledge_source_paths=request.knowledge_source_paths,
@@ -367,32 +371,31 @@ def submit_analysis_job(
 
     job = job_store.create_submitted_job()
     try:
-        security_config = load_security_config_safe(request.config_path)
-        validate_read_path(
+        workspace_root = Path.cwd()
+        security_config = load_security_config_safe("configs/default.yaml")
+        config_path = require_read_path(
+            request.config_path, config=security_config, workspace_root=workspace_root
+        )
+        logs_path = require_read_path(
             request.logs_path,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
-        validate_read_path(
+        metrics_path = require_read_path(
             request.metrics_path,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
-        validate_read_path(
-            request.config_path,
-            config=security_config,
-            workspace_root=Path.cwd(),
-        )
-        validate_write_path(
+        artifact_root = require_write_path(
             request.artifact_root,
             config=security_config,
-            workspace_root=Path.cwd(),
+            workspace_root=workspace_root,
         )
         pipeline_result = run_pipeline_from_files(
-            log_path=request.logs_path,
-            metric_path=request.metrics_path,
-            config_path=request.config_path,
-            artifact_root=request.artifact_root,
+            log_path=str(logs_path),
+            metric_path=str(metrics_path),
+            config_path=str(config_path),
+            artifact_root=str(artifact_root),
             bucket_size_minutes=request.bucket_size_minutes,
             retrieval_enabled=request.retrieval_enabled,
             knowledge_source_paths=request.knowledge_source_paths,
@@ -501,25 +504,23 @@ def export_job_report_webhook(
             detail=f"Report not found for incident_id={incident_id}",
         )
     try:
-        settings = load_webhook_export_config(request.config_path)
-    except Exception as error:
-        raise HTTPException(status_code=400, detail=f"Invalid webhook config: {error}") from error
-    security_config = load_security_config_safe(request.config_path)
-    try:
-        validate_read_path(
-            request.config_path,
+        security_config = load_security_config_safe("configs/default.yaml")
+        config_path = require_read_path(
+            request.config_path, config=security_config, workspace_root=Path.cwd()
+        )
+        settings = load_webhook_export_config(config_path)
+        audit_log_path = require_write_path(
+            Path(job.artifact_dir or "artifacts/pipeline") / "exports" / "webhook_deliveries.jsonl",
             config=security_config,
             workspace_root=Path.cwd(),
         )
-    except ValueError as error:
+    except Exception as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     try:
         delivery = export_report_via_webhook(
             report=report,
             destination_url=request.destination_url,
-            audit_log_path=Path(job.artifact_dir or "artifacts/pipeline")
-            / "exports"
-            / "webhook_deliveries.jsonl",
+            audit_log_path=audit_log_path,
             config=WebhookExportConfig(
                 timeout_seconds=settings.timeout_seconds,
                 max_retries=settings.max_retries,
@@ -606,7 +607,7 @@ def _load_incidents(artifact_dir: str) -> list[CorrelatedIncidentCandidate]:
     path = Path(artifact_dir) / "incidents" / "incidents.json"
     if not path.exists():
         return []
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = read_json(path)
     rows = payload.get("incidents", [])
     if not isinstance(rows, list):
         return []
@@ -617,7 +618,7 @@ def _load_anomalies(artifact_dir: str) -> list[AnomalyCandidate]:
     path = Path(artifact_dir) / "anomalies" / "anomalies.json"
     if not path.exists():
         return []
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = read_json(path)
     rows = payload.get("anomalies", [])
     if not isinstance(rows, list):
         return []

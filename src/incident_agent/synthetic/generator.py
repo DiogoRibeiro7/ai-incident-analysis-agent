@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from incident_agent.schemas.eval import BenchmarkScenario, SyntheticScenarioGeneratorConfig
+from incident_agent.utils.file_io import ensure_directory, write_text
 
 _HEALTHY_TYPES = {"healthy_stable", "healthy_noisy", "normal_traffic_variability"}
 _LATENCY_TYPES = {"transient_latency_spike", "latency_degradation", "gradual_latency_drift"}
@@ -63,8 +65,10 @@ def generate_benchmark_scenario(
 ) -> BenchmarkScenario:
     """Generate one synthetic benchmark scenario with logs, metrics, and metadata."""
 
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", scenario_id):
+        raise ValueError("Scenario ID must be one directory name using letters, digits, _, -, or .")
     scenario_dir = Path(output_root) / scenario_id
-    scenario_dir.mkdir(parents=True, exist_ok=True)
+    ensure_directory(scenario_dir)
     timestamps = _timeline(config.start_time, config.duration_minutes, config.interval_minutes)
     services = _services_for(config)
     randomizer = random.Random(config.seed)
@@ -104,7 +108,7 @@ def generate_benchmark_scenario(
         ["timestamp", "service", "metric_name", "value", "unit"],
         metrics,
     )
-    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    write_text(metadata_path, json.dumps(metadata, indent=2))
 
     return BenchmarkScenario(
         scenario_id=scenario_id,
@@ -345,4 +349,4 @@ def _format_ts(timestamp: datetime) -> str:
 def _write_csv(path: Path, header: list[str], rows: list[list[str]]) -> None:
     lines = [",".join(header)]
     lines.extend(",".join(row) for row in rows)
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_text(path, "\n".join(lines) + "\n")

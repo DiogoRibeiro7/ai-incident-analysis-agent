@@ -56,10 +56,18 @@ def validate_outbound_url(
     return url
 
 
-def validate_read_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> None:
-    """Ensure read path is constrained to approved roots."""
+def validate_read_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
+    """Return the canonical read path after checking the approved roots."""
 
-    _validate_read_path(
+    if not config.enabled:
+        return _resolve_under_workspace(path, workspace_root=workspace_root)
+    return require_read_path(path, config=config, workspace_root=workspace_root)
+
+
+def require_read_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
+    """Validate untrusted input even if a config disables optional policy checks."""
+
+    return _validate_read_path(
         path,
         config=config,
         workspace_root=workspace_root,
@@ -72,10 +80,10 @@ def validate_retrieval_path(
     *,
     config: SecurityConfig,
     workspace_root: Path,
-) -> None:
-    """Ensure retrieval source paths are constrained to configured read roots."""
+) -> Path:
+    """Return a canonical retrieval path under the configured read roots."""
 
-    _validate_read_path(
+    return _validate_read_path(
         path,
         config=config,
         workspace_root=workspace_root,
@@ -83,19 +91,34 @@ def validate_retrieval_path(
     )
 
 
-def validate_write_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> None:
-    """Ensure write path is constrained to approved roots."""
+def validate_write_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
+    """Return the canonical write path after checking the approved roots."""
 
     if not config.enabled:
-        return
-    resolved = _resolve_under_workspace(path, workspace_root=workspace_root)
+        return _resolve_under_workspace(path, workspace_root=workspace_root)
+    return require_write_path(path, config=config, workspace_root=workspace_root)
+
+
+def require_write_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
+    """Validate untrusted output even if a config disables optional policy checks."""
+
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = workspace_root / candidate
+    fullpath = os.path.realpath(candidate)
     allowed_roots = _resolve_allowed_roots(
         config.allowed_write_paths,
         workspace_root=workspace_root,
         include_system_temp=True,
     )
-    if not any(_is_relative_to(resolved, root) for root in allowed_roots):
-        raise PathPolicyError(f"Write path not allowed by security policy: {path}")
+    for root in allowed_roots:
+        basepath = os.path.realpath(root)
+        prefix = basepath.rstrip(os.sep) + os.sep
+        if fullpath == basepath:
+            return Path(basepath)
+        if fullpath.startswith(prefix):
+            return Path(fullpath)
+    raise PathPolicyError(f"Write path not allowed by security policy: {path}")
 
 
 def _validate_read_path(
@@ -104,17 +127,24 @@ def _validate_read_path(
     config: SecurityConfig,
     workspace_root: Path,
     include_system_temp: bool,
-) -> None:
-    if not config.enabled:
-        return
-    resolved = _resolve_under_workspace(path, workspace_root=workspace_root)
+) -> Path:
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = workspace_root / candidate
+    fullpath = os.path.realpath(candidate)
     allowed_roots = _resolve_allowed_roots(
         config.allowed_read_paths,
         workspace_root=workspace_root,
         include_system_temp=include_system_temp,
     )
-    if not any(_is_relative_to(resolved, root) for root in allowed_roots):
-        raise PathPolicyError(f"Read path not allowed by security policy: {path}")
+    for root in allowed_roots:
+        basepath = os.path.realpath(root)
+        prefix = basepath.rstrip(os.sep) + os.sep
+        if fullpath == basepath:
+            return Path(basepath)
+        if fullpath.startswith(prefix):
+            return Path(fullpath)
+    raise PathPolicyError(f"Read path not allowed by security policy: {path}")
 
 
 def load_security_config_safe(config_path: str | Path) -> SecurityConfig:
@@ -156,10 +186,16 @@ def _walk_for_plaintext_secrets(node: object, *, prefix: str, warnings: list[str
 
 
 def _resolve_under_workspace(path: str | Path, *, workspace_root: Path) -> Path:
+    return Path(_normalized_path(path, workspace_root=workspace_root))
+
+
+def _normalized_path(path: str | Path, *, workspace_root: Path) -> str:
+    """Normalize a path and resolve symlinks before checking its allowed root."""
+
     candidate = Path(path)
     if not candidate.is_absolute():
         candidate = workspace_root / candidate
-    return candidate.resolve(strict=False)
+    return os.path.realpath(candidate)
 
 
 def _host_allowed(host: str, allowed_hosts: list[str]) -> bool:
@@ -215,15 +251,7 @@ def _resolve_allowed_roots(
         root = Path(value)
         if not root.is_absolute():
             root = workspace_root / root
-        roots.append(root.resolve(strict=False))
+        roots.append(Path(os.path.realpath(root)))
     if include_system_temp:
-        roots.append(Path(tempfile.gettempdir()).resolve(strict=False))
+        roots.append(Path(os.path.realpath(tempfile.gettempdir())))
     return roots
-
-
-def _is_relative_to(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-        return True
-    except ValueError:
-        return False

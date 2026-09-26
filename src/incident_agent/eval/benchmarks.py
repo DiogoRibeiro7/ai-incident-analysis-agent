@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from incident_agent.schemas.eval import BenchmarkScenario
 from incident_agent.synthetic.generator import generate_benchmark_scenario
+from incident_agent.utils.file_io import read_json
 
 
 def load_benchmark_scenarios(path: str | Path) -> list[BenchmarkScenario]:
     """Load benchmark scenarios from a JSON file."""
 
     source = Path(path)
-    raw = json.loads(source.read_text(encoding="utf-8"))
+    raw = read_json(source)
     if not isinstance(raw, list):
         raise ValueError("Benchmark file must contain a JSON array.")
     scenarios: list[BenchmarkScenario] = []

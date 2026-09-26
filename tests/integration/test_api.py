@@ -43,6 +43,23 @@ def test_config_inspection_failure_for_missing_file() -> None:
     assert "does not exist" in response.json()["detail"]
 
 
+def test_config_inspection_rejects_malformed_yaml(tmp_path: Path) -> None:
+    config = tmp_path / "bad.yaml"
+    config.write_text("settings: [unclosed", encoding="utf-8")
+
+    response = _client().get("/config", params={"config_path": str(config)})
+
+    assert response.status_code == 400
+    assert str(config) in response.json()["detail"]
+
+
+def test_config_inspection_rejects_paths_outside_allowed_roots() -> None:
+    response = _client().get("/config", params={"config_path": "/etc/passwd"})
+
+    assert response.status_code == 400
+    assert "not allowed by security policy" in response.json()["detail"]
+
+
 def test_analyze_pipeline_rejects_disallowed_paths() -> None:
     client = _client()
     response = client.post(
@@ -55,6 +72,35 @@ def test_analyze_pipeline_rejects_disallowed_paths() -> None:
     )
     assert response.status_code == 400
     assert "not allowed by security policy" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("logs_path", "artifact_root", "rejected_access"),
+    [
+        ("/etc/passwd", "artifacts/pipeline", "Read"),
+        ("data/sample/incident/anomaly_logs.csv", "/etc/incident-agent-artifacts", "Write"),
+    ],
+)
+def test_request_config_cannot_expand_server_path_policy(
+    tmp_path: Path, logs_path: str, artifact_root: str, rejected_access: str
+) -> None:
+    config = tmp_path / "untrusted.yaml"
+    config.write_text(
+        "security:\n  allowed_read_paths: ['/']\n  allowed_write_paths: ['/']\n",
+        encoding="utf-8",
+    )
+    response = _client().post(
+        "/analyze-pipeline",
+        json={
+            "config_path": str(config),
+            "logs_path": logs_path,
+            "metrics_path": "data/sample/incident/anomaly_metrics.csv",
+            "artifact_root": artifact_root,
+        },
+    )
+
+    assert response.status_code == 400
+    assert f"{rejected_access} path not allowed by security policy" in response.json()["detail"]
 
 
 def test_analyze_pipeline_rejects_disallowed_retrieval_path(tmp_path: Path) -> None:

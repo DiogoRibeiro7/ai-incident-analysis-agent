@@ -6,10 +6,12 @@ import json
 import re
 from pathlib import Path
 
+from dataexcept import DataLoadingError
 from pydantic import BaseModel
 
 from incident_agent.core.settings import KnowledgeConfig, SecurityConfig
 from incident_agent.schemas.rca import EvidenceBundle, IncidentSummaryFeatures, RootCauseHypothesis
+from incident_agent.utils.file_io import read_text
 from incident_agent.utils.security import validate_retrieval_path
 
 _TEXT_EXTENSIONS = {".md", ".txt", ".log"}
@@ -98,12 +100,11 @@ def _load_candidates(
 ) -> list[_SnippetCandidate]:
     candidates: list[_SnippetCandidate] = []
     for source_path in sorted(source_paths):
-        validate_retrieval_path(
+        base = validate_retrieval_path(
             source_path,
             config=security_config,
             workspace_root=workspace_root,
         )
-        base = Path(source_path)
         if base.is_file():
             candidates.extend(
                 _load_file_candidates(
@@ -131,11 +132,13 @@ def _load_file_candidates(
     security_config: SecurityConfig,
     workspace_root: Path,
 ) -> list[_SnippetCandidate]:
-    validate_retrieval_path(path, config=security_config, workspace_root=workspace_root)
+    validated_path = validate_retrieval_path(
+        path, config=security_config, workspace_root=workspace_root
+    )
     if path.suffix.lower() not in _TEXT_EXTENSIONS | _JSON_EXTENSIONS:
         return []
     try:
-        size = path.stat().st_size
+        size = validated_path.stat().st_size
     except OSError:
         return []
     if size > _MAX_FILE_BYTES:
@@ -143,10 +146,10 @@ def _load_file_candidates(
 
     try:
         if path.suffix.lower() in _JSON_EXTENSIONS:
-            chunks = _json_chunks(path)
+            chunks = _json_chunks(validated_path)
         else:
-            chunks = _text_chunks(path)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            chunks = _text_chunks(validated_path)
+    except (DataLoadingError, json.JSONDecodeError):
         return []
 
     candidates: list[_SnippetCandidate] = []
@@ -165,7 +168,7 @@ def _load_file_candidates(
 
 
 def _text_chunks(path: Path) -> list[str]:
-    text = path.read_text(encoding="utf-8")
+    text = read_text(path)
     if path.suffix.lower() == ".md":
         return _markdown_section_chunks(text)
     chunks = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
@@ -207,7 +210,7 @@ def _json_chunks(path: Path) -> list[str]:
     suffix = path.suffix.lower()
     if suffix == ".jsonl":
         rows = []
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in read_text(path).splitlines():
             stripped = line.strip()
             if not stripped:
                 continue
@@ -223,7 +226,7 @@ def _json_chunks(path: Path) -> list[str]:
             rows.append(json.dumps(parsed, sort_keys=True))
         return rows
 
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(read_text(path))
     grafana_chunks = _grafana_annotation_chunks(payload)
     if grafana_chunks:
         return grafana_chunks
