@@ -177,7 +177,7 @@ def _resolve_under_workspace(path: str | Path, *, workspace_root: Path) -> Path:
     candidate = Path(path)
     if not candidate.is_absolute():
         candidate = workspace_root / candidate
-    return candidate.resolve(strict=False)
+    return Path(os.path.realpath(candidate))
 
 
 def _host_allowed(host: str, allowed_hosts: list[str]) -> bool:
@@ -233,7 +233,7 @@ def _resolve_allowed_roots(
         root = Path(value)
         if not root.is_absolute():
             root = workspace_root / root
-        roots.append(root.resolve(strict=False))
+        roots.append(Path(os.path.realpath(root)))
     if include_system_temp:
-        roots.append(Path(tempfile.gettempdir()).resolve(strict=False))
+        roots.append(Path(os.path.realpath(tempfile.gettempdir())))
     return roots
