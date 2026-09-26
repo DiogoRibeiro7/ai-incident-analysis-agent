@@ -102,7 +102,10 @@ def validate_write_path(path: str | Path, *, config: SecurityConfig, workspace_r
 def require_write_path(path: str | Path, *, config: SecurityConfig, workspace_root: Path) -> Path:
     """Validate untrusted output even if a config disables optional policy checks."""
 
-    fullpath = _normalized_path(path, workspace_root=workspace_root)
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = workspace_root / candidate
+    fullpath = os.path.realpath(candidate)
     allowed_roots = _resolve_allowed_roots(
         config.allowed_write_paths,
         workspace_root=workspace_root,
@@ -111,8 +114,11 @@ def require_write_path(path: str | Path, *, config: SecurityConfig, workspace_ro
     for root in allowed_roots:
         basepath = os.path.realpath(root)
         prefix = basepath.rstrip(os.sep) + os.sep
-        if fullpath == basepath or fullpath.startswith(prefix):
+        if fullpath == basepath:
             return Path(fullpath)
+        if not fullpath.startswith(prefix):
+            continue
+        return Path(fullpath)
     raise PathPolicyError(f"Write path not allowed by security policy: {path}")
 
 
@@ -123,7 +129,10 @@ def _validate_read_path(
     workspace_root: Path,
     include_system_temp: bool,
 ) -> Path:
-    fullpath = _normalized_path(path, workspace_root=workspace_root)
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = workspace_root / candidate
+    fullpath = os.path.realpath(candidate)
     allowed_roots = _resolve_allowed_roots(
         config.allowed_read_paths,
         workspace_root=workspace_root,
@@ -132,8 +141,11 @@ def _validate_read_path(
     for root in allowed_roots:
         basepath = os.path.realpath(root)
         prefix = basepath.rstrip(os.sep) + os.sep
-        if fullpath == basepath or fullpath.startswith(prefix):
+        if fullpath == basepath:
             return Path(fullpath)
+        if not fullpath.startswith(prefix):
+            continue
+        return Path(fullpath)
     raise PathPolicyError(f"Read path not allowed by security policy: {path}")
 
 
