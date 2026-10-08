@@ -1,0 +1,7 @@
+Tool: built-in image generation
+
+Use case: logo-brand.
+Asset type: square project logo for ai-incident-analysis-agent.
+Project purpose: AI incident analysis agent over logs and metrics with anomaly detection, correlation, root-cause analysis, and LLM-assisted reporting.
+Design direction: A dramatic root-cause emblem: a single bright red thread is pulled cleanly from a compact tangled cyan knot, revealing one clear path through the tangle. Luminous fiber-optic line art on near-black plum, sharply separated strands and a simple strong silhouette. High-contrast investigative technology aesthetic, no magnifying glass, no robot, no brain, no text.
+Composition: one finished square image, visually distinctive and readable at 160 pixels, with enough margin for README display. Produce the actual artwork, not a mockup sheet or brand presentation. No watermark. Do not use a navy-and-gold metallic badge aesthetic.
