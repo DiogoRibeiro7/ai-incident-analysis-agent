@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/project-avatar.png" alt="ai-incident-analysis-agent project logo" width="160" height="160">
+</p>
+
 # AI Incident Analysis Agent
 
 [![CI](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DiogoRibeiro7/ai-incident-analysis-agent/actions/workflows/ci.yml)
